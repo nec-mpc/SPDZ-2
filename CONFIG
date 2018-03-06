@@ -1,5 +1,7 @@
 # (C) 2018 University of Bristol. See License.txt
 
+MY_CFLAGS = -DINSECURE
+
 ROOT = .
 
 OPTIM= -O3
