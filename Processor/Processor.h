@@ -291,5 +291,43 @@ template<> inline vector<gf2n>& Processor::get_PO()               { return PO2; 
 template<> inline vector< Share<gfp> >& Processor::get_Sh_PO()    { return Sh_POp; }
 template<> inline vector<gfp>& Processor::get_PO()                { return POp; }
 
+//*****************************************************************************************//
+struct MPC_CTX;
+struct share_t;
+struct clear_t;
+
+class spdz_ext_ifc
+{
+public:
+	spdz_ext_ifc();
+	~spdz_ext_ifc();
+
+	void * ext_lib_handle;
+
+	int (*ext_init)(MPC_CTX *ctx, const int party_id, const int num_of_parties,
+					const char * field, const int open_count, const int mult_count,
+					const int bits_count);
+    int (*ext_term)(MPC_CTX *ctx);
+
+    int (*ext_skew_bit_decomp)(MPC_CTX * ctx, const share_t * rings_in, share_t * bits_out);
+    int (*ext_skew_ring_comp)(MPC_CTX * ctx, const share_t * bits_in, share_t * rings_out);
+    int (*ext_input_party)(MPC_CTX * ctx, int sharing_party_id, clear_t * rings_in, share_t * rings_out);
+    int (*ext_input_share)(MPC_CTX * ctx, clear_t * rings_in, share_t *rings_out);
+    int (*ext_make_input_from_integer)(MPC_CTX * ctx, uint64_t * integers, int integers_count, clear_t * rings_out);
+    int (*ext_make_input_from_fixed)(MPC_CTX * ctx, const char * fix_strs[], int fix_count, clear_t * rings_out);
+    int (*ext_start_open)(MPC_CTX * ctx, const share_t * rings_in, clear_t * rings_out);
+    int (*ext_stop_open)(MPC_CTX * ctx);
+    int (*ext_make_integer_output)(MPC_CTX * ctx, const share_t * rings_in, uint64_t * integers, int * integers_count);
+    int (*ext_make_fixed_output)(MPC_CTX * ctx, const share_t * rings_in, char * fix_strs[], int * fixed_count);
+    int (*ext_verify_optional_suggest)(MPC_CTX * ctx, int * error);
+    int (*ext_verify_final)(MPC_CTX * ctx, int * error);
+    int (*ext_start_mult)(MPC_CTX * ctx, const share_t * factor1, const share_t * factor2, share_t * product);
+    int (*ext_stop_mult)(MPC_CTX * ctx);
+
+    static int load_extension_method(const char * method_name, void ** proc_addr, void * libhandle);
+};
+
+//*****************************************************************************************//
+
 #endif
 
