@@ -20,7 +20,8 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
 : thread_num(thread_num),DataF(DataF),P(P),MC2(MC2),MCp(MCp),machine(machine),
   private_input_filename(get_filename(PREP_DIR "Private-Input-",true)),
   input2(*this,MC2),inputp(*this,MCp),privateOutput2(*this),privateOutputp(*this),sent(0),rounds(0),
-  external_clients(ExternalClients(P.my_num(), DataF.prep_data_dir)),binary_file_io(Binary_File_IO())
+  external_clients(ExternalClients(P.my_num(), DataF.prep_data_dir)),binary_file_io(Binary_File_IO()),
+  spdz_gfp_ext_context(NULL)
 {
   reset(program,0);
 
@@ -28,12 +29,26 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
   private_input.open(private_input_filename.c_str());
   public_output.open(get_filename(PREP_DIR "Public-Output-",true).c_str(), ios_base::out);
   private_output.open(get_filename(PREP_DIR "Private-Output-",true).c_str(), ios_base::out);
+
+  spdz_gfp_ext_context = new MPC_CTX;
+  spdz_gfp_ext_context->handle = 0;
+  cout << "Processor " << thread_num << " SPDZ GFP extension library initializing." << endl;
+  if(0 != (*the_ext_lib.ext_init)(spdz_gfp_ext_context, P.my_num(), P.num_players(), "ring32", 100, 100, 100))
+  {
+  	cerr << "SPDZ GFP extension library initialization failed." << endl;
+  	dlclose(the_ext_lib.ext_lib_handle);
+  	abort();
+  }
+  cout << "SPDZ GFP extension library initialized." << endl;
 }
 
 
 Processor::~Processor()
 {
   cerr << "Sent " << sent << " elements in " << rounds << " rounds" << endl;
+  (*the_ext_lib.ext_term)(spdz_gfp_ext_context);
+  delete spdz_gfp_ext_context;
+  dlclose(the_ext_lib.ext_lib_handle);
 }
 
 string Processor::get_filename(const char* prefix, bool use_number)
