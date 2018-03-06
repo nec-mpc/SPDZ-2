@@ -30,7 +30,7 @@ endif
 # Default is 2, which suffices for 128-bit p
 # MOD = -DMAX_MOD_SZ=2
 
-LDLIBS = -lmpirxx -lmpir -lsodium $(MY_LDLIBS) -lm -lpthread 
+LDLIBS = -lmpirxx -lmpir -lsodium $(MY_LDLIBS) -lm -ldl -lpthread 
 
 ifeq ($(USE_NTL),1)
 LDLIBS := -lntl $(LDLIBS)

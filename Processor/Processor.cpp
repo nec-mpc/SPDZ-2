@@ -9,6 +9,10 @@
 #include <sodium.h>
 #include <string>
 
+#include <sys/stat.h>
+#include <dlfcn.h>
+
+spdz_ext_ifc the_ext_lib;
 
 Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
         MAC_Check<gf2n>& MC2,MAC_Check<gfp>& MCp,Machine& machine,
@@ -500,3 +504,93 @@ template void Processor::read_socket_private<gfp>(int client_id, const vector<in
 template void Processor::read_socket_vector<gfp>(int client_id, const vector<int>& registers);
 template void Processor::read_shares_from_file<gfp>(int start_file_pos, int end_file_pos_register, const vector<int>& data_registers);
 template void Processor::write_shares_to_file<gfp>(const vector<int>& data_registers);
+
+//*****************************************************************************************//
+
+#define LOAD_LIB_METHOD(Name,Proc)	\
+if(0 != load_extension_method(Name, (void**)(&Proc), ext_lib_handle)) { dlclose(ext_lib_handle); abort(); }
+
+spdz_ext_ifc::spdz_ext_ifc()
+{
+	ext_lib_handle = NULL;
+	*(void**)(&ext_init) = NULL;
+	*(void**)(&ext_term) = NULL;
+	*(void**)(&ext_skew_bit_decomp) = NULL;
+	*(void**)(&ext_skew_ring_comp) = NULL;
+	*(void**)(&ext_input_party) = NULL;
+	*(void**)(&ext_input_share) = NULL;
+	*(void**)(&ext_make_input_from_integer) = NULL;
+	*(void**)(&ext_make_input_from_fixed) = NULL;
+	*(void**)(&ext_start_open) = NULL;
+	*(void**)(&ext_stop_open) = NULL;
+	*(void**)(&ext_make_integer_output) = NULL;
+	*(void**)(&ext_make_fixed_output) = NULL;
+	*(void**)(&ext_verify_optional_suggest) = NULL;
+	*(void**)(&ext_verify_final) = NULL;
+	*(void**)(&ext_start_mult) = NULL;
+	*(void**)(&ext_stop_mult) = NULL;
+
+	//get the SPDZ-2 extension library for env-var
+	const char * spdz_ext_lib = getenv("SPDZ_EXT_LIB");
+	if(NULL == spdz_ext_lib)
+	{
+		cerr << "SPDZ extension library not set" << endl;
+		abort();
+	}
+	cout << "set extension library " << spdz_ext_lib << endl;
+
+	//verify the SPDZ-2 extension library exists
+	struct stat st;
+	if(0 != stat(spdz_ext_lib, &st))
+	{
+		cerr << "failed to find extension library " << spdz_ext_lib << endl;
+		abort();
+	}
+	cout << "found extension library " << spdz_ext_lib << endl;
+
+	//load the SPDZ-2 extension library
+	ext_lib_handle = dlopen(spdz_ext_lib, RTLD_NOW);
+	if(NULL == ext_lib_handle)
+	{
+		const char * dlopen_err_msg = dlerror();
+		cerr << "failed to load extension library [" << ((NULL != dlopen_err_msg)? dlopen_err_msg: "") << "]" << endl;
+		abort();
+	}
+
+	//loading the SPDZ-2 extension library methods
+	LOAD_LIB_METHOD("init", ext_init)
+	LOAD_LIB_METHOD("term", ext_term)
+	LOAD_LIB_METHOD("skew_bit_decomp", ext_skew_bit_decomp)
+	LOAD_LIB_METHOD("skew_ring_comp", ext_skew_ring_comp)
+	LOAD_LIB_METHOD("input_party", ext_input_party)
+	LOAD_LIB_METHOD("input_share", ext_input_share)
+	LOAD_LIB_METHOD("make_input_from_integer", ext_make_input_from_integer)
+	LOAD_LIB_METHOD("make_input_from_fixed", ext_make_input_from_fixed)
+	LOAD_LIB_METHOD("start_open", ext_start_open)
+	LOAD_LIB_METHOD("stop_open", ext_stop_open)
+	LOAD_LIB_METHOD("make_integer_output", ext_make_integer_output)
+	LOAD_LIB_METHOD("make_fixed_output", ext_make_fixed_output)
+	LOAD_LIB_METHOD("verify_optional_suggest", ext_verify_optional_suggest)
+	LOAD_LIB_METHOD("verify_final", ext_verify_final)
+	LOAD_LIB_METHOD("start_mult", ext_start_mult)
+	LOAD_LIB_METHOD("stop_mult", ext_stop_mult)
+}
+
+spdz_ext_ifc::~spdz_ext_ifc()
+{
+	dlclose(ext_lib_handle);
+}
+
+int spdz_ext_ifc::load_extension_method(const char * method_name, void ** proc_addr, void * libhandle)
+{
+	*proc_addr = dlsym(libhandle, method_name);
+	const char * dlsym_error = dlerror();
+	if(NULL != dlsym_error || NULL == *proc_addr)
+	{
+		cerr << "failed to load " << method_name << " extension [" << ((NULL != dlsym_error)? dlsym_error: "") << "]" << endl;
+		return -1;
+	}
+	return 0;
+}
+
+//*****************************************************************************************//
