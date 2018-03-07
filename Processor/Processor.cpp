@@ -20,8 +20,7 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
 : thread_num(thread_num),DataF(DataF),P(P),MC2(MC2),MCp(MCp),machine(machine),
   private_input_filename(get_filename(PREP_DIR "Private-Input-",true)),
   input2(*this,MC2),inputp(*this,MCp),privateOutput2(*this),privateOutputp(*this),sent(0),rounds(0),
-  external_clients(ExternalClients(P.my_num(), DataF.prep_data_dir)),binary_file_io(Binary_File_IO()),
-  spdz_gfp_ext_context(NULL)
+  external_clients(ExternalClients(P.my_num(), DataF.prep_data_dir)),binary_file_io(Binary_File_IO())
 {
   reset(program,0);
 
@@ -30,24 +29,23 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
   public_output.open(get_filename(PREP_DIR "Public-Output-",true).c_str(), ios_base::out);
   private_output.open(get_filename(PREP_DIR "Private-Output-",true).c_str(), ios_base::out);
 
-  spdz_gfp_ext_context = new MPC_CTX;
-  spdz_gfp_ext_context->handle = 0;
+  spdz_gfp_ext_context.handle = 0;
   cout << "Processor " << thread_num << " SPDZ GFP extension library initializing." << endl;
-  if(0 != (*the_ext_lib.ext_init)(spdz_gfp_ext_context, P.my_num(), P.num_players(), "ring32", 100, 100, 100))
+  if(0 != (*the_ext_lib.ext_init)(&spdz_gfp_ext_context, P.my_num(), P.num_players(), "ring32", 100, 100, 100))
   {
   	cerr << "SPDZ GFP extension library initialization failed." << endl;
   	dlclose(the_ext_lib.ext_lib_handle);
   	abort();
   }
   cout << "SPDZ GFP extension library initialized." << endl;
+  zp_word64_size = get_zp_word64_size();
 }
 
 
 Processor::~Processor()
 {
   cerr << "Sent " << sent << " elements in " << rounds << " rounds" << endl;
-  (*the_ext_lib.ext_term)(spdz_gfp_ext_context);
-  delete spdz_gfp_ext_context;
+  (*the_ext_lib.ext_term)(&spdz_gfp_ext_context);
   dlclose(the_ext_lib.ext_lib_handle);
 }
 
@@ -409,61 +407,105 @@ void Processor::write_shares_to_file(const vector<int>& data_registers) {
 template <class T>
 void Processor::POpen_Start(const vector<int>& reg,const Player& P,MAC_Check<T>& MC,int size)
 {
-  int sz=reg.size();
-  vector< Share<T> >& Sh_PO = get_Sh_PO<T>();
-  vector<T>& PO = get_PO<T>();
-  Sh_PO.clear();
-  Sh_PO.reserve(sz*size);
-  if (size>1)
-    {
-      for (typename vector<int>::const_iterator reg_it=reg.begin();
-          reg_it!=reg.end(); reg_it++)
-        {
-          typename vector<Share<T> >::iterator begin=get_S<T>().begin()+*reg_it;
-          Sh_PO.insert(Sh_PO.end(),begin,begin+size);
-        }
-    }
-  else
-    {
-      for (int i=0; i<sz; i++)
-        { Sh_PO.push_back(get_S_ref<T>(reg[i])); }
-    }
-  PO.resize(sz*size);
-  MC.POpen_Begin(PO,Sh_PO,P);
+	int sz=reg.size();
+
+	vector< Share<T> >& Sh_PO = get_Sh_PO<T>();
+	Sh_PO.clear();
+	Sh_PO.reserve(sz*size);
+
+	prep_shares(reg, Sh_PO, size);
+
+	vector<T>& PO = get_PO<T>();
+	PO.resize(sz*size);
+
+	MC.POpen_Begin(PO,Sh_PO,P);
 }
 
 
 template <class T>
 void Processor::POpen_Stop(const vector<int>& reg,const Player& P,MAC_Check<T>& MC,int size)
 {
-  vector< Share<T> >& Sh_PO = get_Sh_PO<T>();
-  vector<T>& PO = get_PO<T>();
-  vector<T>& C = get_C<T>();
-  int sz=reg.size();
-  PO.resize(sz*size);
-  MC.POpen_End(PO,Sh_PO,P);
-  if (size>1)
-    {
-      typename vector<T>::iterator PO_it=PO.begin();
-      for (typename vector<int>::const_iterator reg_it=reg.begin();
-          reg_it!=reg.end(); reg_it++)
-        {
-          for (typename vector<T>::iterator C_it=C.begin()+*reg_it;
-              C_it!=C.begin()+*reg_it+size; C_it++)
-            {
-              *C_it=*PO_it;
-              PO_it++;
-            }
-        }
-    }
-  else
-    {
-      for (unsigned int i=0; i<reg.size(); i++)
-        { get_C_ref<T>(reg[i]) = PO[i]; }
-    }
+	vector< Share<T> >& Sh_PO = get_Sh_PO<T>();
+	vector<T>& PO = get_PO<T>();
+	vector<T>& C = get_C<T>();
+	int sz=reg.size();
+	PO.resize(sz*size);
+	MC.POpen_End(PO,Sh_PO,P);
 
-  sent += reg.size() * size;
-  rounds++;
+	POpen_Stop_prep_opens(reg, PO, C, size);
+
+	sent += reg.size() * size;
+	rounds++;
+}
+
+template <class T>
+void Processor::prep_shares(const vector<int>& reg, vector< Share<T> >& shares, int size)
+{
+	if (size>1)
+	{
+		for (typename vector<int>::const_iterator reg_it=reg.begin(); reg_it!=reg.end(); reg_it++)
+		{
+			typename vector<Share<T> >::iterator begin=get_S<T>().begin()+*reg_it;
+			shares.insert(shares.end(),begin,begin+size);
+		}
+	}
+	else
+	{
+		int sz=reg.size();
+		for (int i=0; i<sz; i++)
+		{
+			shares.push_back(get_S_ref<T>(reg[i]));
+		}
+	}
+}
+
+template <class T>
+void Processor::load_shares(const vector<int>& reg, const vector< Share<T> >& shares, int size)
+{
+	if (size>1)
+	{
+		size_t share_idx = 0;
+		for (typename vector<int>::const_iterator reg_it=reg.begin(); reg_it!=reg.end(); reg_it++)
+		{
+			vector<Share<gfp> >::iterator insert_point=get_S<gfp>().begin()+*reg_it;
+			for(int i = 0; i < size; ++i)
+			{
+				*(insert_point + i) = shares[share_idx++];
+			}
+		}
+	}
+	else
+	{
+		int sz=reg.size();
+		for(int i = 0; i < sz; ++i)
+		{
+			get_S_ref<gfp>(reg[i]) = shares[i];
+		}
+	}
+}
+
+template <class T>
+void Processor::POpen_Stop_prep_opens(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size)
+{
+	if (size>1)
+	{
+		typename vector<T>::iterator PO_it=PO.begin();
+		for (typename vector<int>::const_iterator reg_it=reg.begin(); reg_it!=reg.end(); reg_it++)
+		{
+			for (typename vector<T>::iterator C_it=C.begin()+*reg_it; C_it!=C.begin()+*reg_it+size; C_it++)
+			{
+			  *C_it=*PO_it;
+			  PO_it++;
+			}
+		}
+	}
+	else
+	{
+		for (unsigned int i=0; i<reg.size(); i++)
+		{
+			get_C_ref<T>(reg[i]) = PO[i];
+		}
+	}
 }
 
 ostream& operator<<(ostream& s,const Processor& P)
@@ -520,6 +562,75 @@ template void Processor::read_socket_vector<gfp>(int client_id, const vector<int
 template void Processor::read_shares_from_file<gfp>(int start_file_pos, int end_file_pos_register, const vector<int>& data_registers);
 template void Processor::write_shares_to_file<gfp>(const vector<int>& data_registers);
 
+void Processor::PSkew_Bit_Decomp(const vector<int>& reg, int size)
+{
+	int sz=reg.size();
+
+	vector< Share<gfp> >& Sh_PO = get_Sh_PO<gfp>();
+	Sh_PO.clear();
+	Sh_PO.reserve(sz*size);
+
+	prep_shares(reg, Sh_PO, size);
+
+	share_t rings_in, bits_out;
+	rings_in.size = bits_out.size = zp_word64_size * 8;
+	rings_in.count = bits_out.count = Sh_PO.size();
+	rings_in.data = new u_int8_t[rings_in.size * rings_in.count];
+	bits_out.data = new u_int8_t[bits_out.size * bits_out.count];
+
+	export_shares(Sh_PO, rings_in);
+
+	if(0 != (*the_ext_lib.ext_skew_bit_decomp)(&spdz_gfp_ext_context, &rings_in, &bits_out))
+	{
+		cerr << "Processor::PSkew_Bit_Decomp extension library ext_skew_bit_decomp() failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+	import_shares(bits_out, Sh_PO);
+	load_shares(reg, Sh_PO, size);
+}
+
+size_t Processor::get_zp_word64_size()
+{
+	size_t bit_size = gfp::get_ZpD().pr.numBits();
+	size_t byte_size = ((bit_size + 7) / 8);
+	size_t word64_size = ((byte_size + 7) / 8);
+	return word64_size;
+}
+
+static const int share_port_order = -1;
+static const size_t share_port_size = 8;
+static const int share_port_endian = 0;
+static const size_t share_port_nails = 0;
+
+void Processor::export_shares(const vector< Share<gfp> > & shares_in, share_t & shares_out)
+{
+	assert(shares_in.size() == shares_out.count);
+
+	bigint b;
+	for(size_t i = 0; i < shares_out.count; ++i)
+	{
+		to_bigint(b, shares_in[i].get_share());
+		memset(shares_out.data + (i * shares_out.size), 0, shares_out.size);
+		mpz_export(shares_out.data + (i * shares_out.size), NULL, share_port_order, share_port_size, share_port_endian, share_port_nails, b.get_mpz_t());
+	}
+}
+
+void Processor::import_shares(const share_t & shares_in, vector< Share<gfp> > & shares_out)
+{
+	assert(shares_in.count == shares_out.size());
+
+	bigint b;
+	gfp mac, value;
+	for(size_t i = 0; i < shares_in.count; ++i)
+	{
+		mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, shares_in.data + (i * shares_in.count));
+		to_gfp(value, b);
+		mac.mul(MCp.get_alphai(), value);
+		shares_out[i].set_share(value);
+		shares_out[i].set_mac(mac);
+	}
+}
 //*****************************************************************************************//
 
 #define LOAD_LIB_METHOD(Name,Proc)	\

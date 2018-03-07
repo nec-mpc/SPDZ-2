@@ -162,7 +162,9 @@ opcodes = dict(
     GBITCOM = 0x185,
     # Secure socket
     INITSECURESOCKET = 0x1BA,
-    RESPSECURESOCKET = 0x1BB
+    RESPSECURESOCKET = 0x1BB,
+
+    E_SKEW_BIT_DEC = 0x201
 )
 
 

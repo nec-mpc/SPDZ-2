@@ -1652,6 +1652,9 @@ void Instruction::execute(Processor& Proc) const
       case GPREP:
         Proc.DataF.get<gf2n>(Proc, r, start, size);
         return;
+      case E_SKEW_BIT_DEC:
+    	Proc.PSkew_Bit_Decomp(start, size);
+    	break;
       default:
         printf("Case of opcode=%d not implemented yet\n",opcode);
         throw not_implemented();

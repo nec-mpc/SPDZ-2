@@ -314,6 +314,17 @@ class Processor : public ProcessorBase
   template <class T>
   void POpen_Stop(const vector<int>& reg,const Player& P,MAC_Check<T>& MC,int size);
 
+  template <class T>
+  void prep_shares(const vector<int>& reg, vector< Share<T> >& shares, int size);
+
+  template <class T>
+  void load_shares(const vector<int>& reg, const vector< Share<T> >& shares, int size);
+
+  template <class T>
+  void POpen_Stop_prep_opens(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size);
+
+  void PSkew_Bit_Decomp(const vector<int>& reg, int size);
+
   // Print the processor state
   friend ostream& operator<<(ostream& s,const Processor& P);
 
@@ -321,7 +332,11 @@ class Processor : public ProcessorBase
     void maybe_decrypt_sequence(int client_id);
     void maybe_encrypt_sequence(int client_id);
 
-    MPC_CTX * spdz_gfp_ext_context;
+    MPC_CTX spdz_gfp_ext_context;
+    size_t zp_word64_size;
+    static size_t get_zp_word64_size();
+    void export_shares(const vector< Share<gfp> > & shares_in, share_t & shares_out);
+    void import_shares(const share_t & shares_in, vector< Share<gfp> > & shares_out);
 };
 
 template<> inline Share<gf2n>& Processor::get_S_ref(int i) { return get_S2_ref(i); }

@@ -1412,6 +1412,20 @@ class g2muls(base.CISC):
         gadds(s[8], s[7], s[6])
         gaddm(self.args[0], s[8], c[2])
 
+
+###
+### nec instructions
+###
+
+@base.gf2n
+@base.vectorize
+class e_skew_bit_dec(base.Instruction):
+    """ skew bits of secret register $s_j into $s_i$. """
+    __slots__ = []
+    code = base.opcodes['E_SKEW_BIT_DEC']
+    arg_format = ['sw','s']
+
+
 #@base.vectorize
 #class gmulbits(base.CISC):
 #    r""" Secret $GF(2^n) \times GF(2)$ multiplication """
