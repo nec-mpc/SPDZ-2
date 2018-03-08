@@ -20,7 +20,8 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
 : thread_num(thread_num),DataF(DataF),P(P),MC2(MC2),MCp(MCp),machine(machine),
   private_input_filename(get_filename(PREP_DIR "Private-Input-",true)),
   input2(*this,MC2),inputp(*this,MCp),privateOutput2(*this),privateOutputp(*this),sent(0),rounds(0),
-  external_clients(ExternalClients(P.my_num(), DataF.prep_data_dir)),binary_file_io(Binary_File_IO())
+  external_clients(ExternalClients(P.my_num(), DataF.prep_data_dir)),binary_file_io(Binary_File_IO()),
+  input_file_int(NULL), input_file_fix(NULL), input_file_share(NULL)
 {
   reset(program,0);
 
@@ -33,18 +34,25 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
   cout << "Processor " << thread_num << " SPDZ GFP extension library initializing." << endl;
   if(0 != (*the_ext_lib.ext_init)(&spdz_gfp_ext_context, P.my_num(), P.num_players(), "ring32", 100, 100, 100))
   {
-  	cerr << "SPDZ GFP extension library initialization failed." << endl;
+  	cerr << "SPDZ extension library initialization failed." << endl;
   	dlclose(the_ext_lib.ext_lib_handle);
   	abort();
   }
   cout << "SPDZ GFP extension library initialized." << endl;
   zp_word64_size = get_zp_word64_size();
+  if(0 != open_input_file())
+  {
+	  	cerr << "SPDZ extension library input files open failed." << endl;
+	  	dlclose(the_ext_lib.ext_lib_handle);
+	  	abort();
+  }
 }
 
 
 Processor::~Processor()
 {
   cerr << "Sent " << sent << " elements in " << rounds << " rounds" << endl;
+  close_input_file();
   (*the_ext_lib.ext_term)(&spdz_gfp_ext_context);
   dlclose(the_ext_lib.ext_lib_handle);
 }
@@ -562,6 +570,11 @@ template void Processor::read_socket_vector<gfp>(int client_id, const vector<int
 template void Processor::read_shares_from_file<gfp>(int start_file_pos, int end_file_pos_register, const vector<int>& data_registers);
 template void Processor::write_shares_to_file<gfp>(const vector<int>& data_registers);
 
+static const int share_port_order = -1;
+static const size_t share_port_size = 8;
+static const int share_port_endian = 0;
+static const size_t share_port_nails = 0;
+
 void Processor::PSkew_Bit_Decomp(const vector<int>& reg, int size)
 {
 	int sz=reg.size();
@@ -618,6 +631,58 @@ void Processor::PSkew_Ring_Comp(const vector<int>& reg, int size)
 	load_shares(reg, Sh_PO, size);
 }
 
+void Processor::PInput_Share_Int(Share<gfp>& input_shared_value, const int input_party_id)
+{
+	clear_t clr_int_input;
+	clr_int_input.count = 1;
+	clr_int_input.size = zp_word64_size * 8;
+	clr_int_input.data = new u_int8_t[clr_int_input.size];
+	memset(clr_int_input.data, 0, clr_int_input.size);
+
+	share_t sec_int_input;
+	sec_int_input.count = 1;
+	sec_int_input.size = zp_word64_size * 8;
+	sec_int_input.data = new u_int8_t[sec_int_input.size];
+	memset(sec_int_input.data, 0, sec_int_input.size);
+
+	if(P.my_num() == input_party_id)
+	{
+		std::string str_input;
+		if(0 != read_input_line(input_file_int, str_input))
+		{
+			cerr << "Processor::PInput_Share_Int failed reading integer input value." << endl;
+			dlclose(the_ext_lib.ext_lib_handle);
+			abort();
+		}
+		u_int64_t int_input = strtol(str_input.c_str(), NULL, 10);
+		if(0 != (*the_ext_lib.ext_make_input_from_integer)(&spdz_gfp_ext_context, &int_input, 1, &clr_int_input))
+		{
+			cerr << "Processor::PInput_Share_Int extension library ext_make_input_from_integer() failed." << endl;
+			dlclose(the_ext_lib.ext_lib_handle);
+			abort();
+		}
+	}
+
+	if(0 != (*the_ext_lib.ext_input_party)(&spdz_gfp_ext_context, input_party_id, &clr_int_input, &sec_int_input))
+	{
+		cerr << "Processor::PInput_Share_Int extension library ext_input_party() failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+
+	delete clr_int_input.data;
+
+	bigint b;
+	gfp mac, value;
+	mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, sec_int_input.data);
+	to_gfp(value, b);
+	mac.mul(MCp.get_alphai(), value);
+	input_shared_value.set_share(value);
+	input_shared_value.set_mac(mac);
+
+	delete sec_int_input.data;
+}
+
 size_t Processor::get_zp_word64_size()
 {
 	size_t bit_size = gfp::get_ZpD().pr.numBits();
@@ -625,11 +690,6 @@ size_t Processor::get_zp_word64_size()
 	size_t word64_size = ((byte_size + 7) / 8);
 	return word64_size;
 }
-
-static const int share_port_order = -1;
-static const size_t share_port_size = 8;
-static const int share_port_endian = 0;
-static const size_t share_port_nails = 0;
 
 void Processor::export_shares(const vector< Share<gfp> > & shares_in, share_t & shares_out)
 {
@@ -652,12 +712,73 @@ void Processor::import_shares(const share_t & shares_in, vector< Share<gfp> > & 
 	gfp mac, value;
 	for(size_t i = 0; i < shares_in.count; ++i)
 	{
-		mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, shares_in.data + (i * shares_in.count));
+		mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, shares_in.data + (i * shares_in.size));
 		to_gfp(value, b);
 		mac.mul(MCp.get_alphai(), value);
 		shares_out[i].set_share(value);
 		shares_out[i].set_mac(mac);
 	}
+}
+
+int Processor::open_input_file()
+{
+	char buffer[256];
+
+	snprintf(buffer, 256, "integers_input_%d.txt", P.my_num());
+	input_file_int = fopen(buffer, "r");
+	if(NULL == input_file_int)
+		return -1;
+
+	snprintf(buffer, 256, "fixes_input_%d.txt", P.my_num());
+	input_file_fix = fopen(buffer, "r");
+	if(NULL == input_file_fix)
+	{
+		fclose(input_file_int);
+		return -1;
+	}
+
+	snprintf(buffer, 256, "shares_input_%d.txt", P.my_num());
+	input_file_share = fopen(buffer, "r");
+	if(NULL == input_file_share)
+	{
+		fclose(input_file_int);
+		fclose(input_file_fix);
+		return -1;
+	}
+
+	return 0;
+}
+
+int Processor::close_input_file()
+{
+	if(NULL != input_file_int)
+	{
+		fclose(input_file_int);
+		input_file_int = NULL;
+	}
+	if(NULL != input_file_fix)
+	{
+		fclose(input_file_fix);
+		input_file_fix = NULL;
+	}
+	if(NULL != input_file_share)
+	{
+		fclose(input_file_share);
+		input_file_share = NULL;
+	}
+	return 0;
+}
+
+int Processor::read_input_line(FILE * input_file, std::string & line)
+{
+	char buffer[256];
+	if(NULL != fgets(buffer, 256, input_file))
+	{
+		line = buffer;
+		return 0;
+	}
+	else
+		return -1;
 }
 //*****************************************************************************************//
 

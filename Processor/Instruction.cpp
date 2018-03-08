@@ -1656,7 +1656,10 @@ void Instruction::execute(Processor& Proc) const
     	Proc.PSkew_Bit_Decomp(start, size);
     	break;
       case E_SKEW_RING_REC:
-    	  Proc.PSkew_Ring_Comp(start, size);
+    	Proc.PSkew_Ring_Comp(start, size);
+    	break;
+      case E_INPUT_SHARE_INT:
+    	Proc.PInput_Share_Int(Proc.get_Sp_ref(r[0]), n);
     	break;
       default:
         printf("Case of opcode=%d not implemented yet\n",opcode);

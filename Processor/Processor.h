@@ -325,6 +325,7 @@ class Processor : public ProcessorBase
 
   void PSkew_Bit_Decomp(const vector<int>& reg, int size);
   void PSkew_Ring_Comp(const vector<int>& reg, int size);
+  void PInput_Share_Int(Share<gfp>& input_shared_value, const int input_party_id);
 
   // Print the processor state
   friend ostream& operator<<(ostream& s,const Processor& P);
@@ -335,9 +336,13 @@ class Processor : public ProcessorBase
 
     MPC_CTX spdz_gfp_ext_context;
     size_t zp_word64_size;
+    FILE * input_file_int, * input_file_fix, * input_file_share;
     static size_t get_zp_word64_size();
     void export_shares(const vector< Share<gfp> > & shares_in, share_t & shares_out);
     void import_shares(const share_t & shares_in, vector< Share<gfp> > & shares_out);
+    int open_input_file();
+    int close_input_file();
+    int read_input_line(FILE * input_file, std::string & line);
 };
 
 template<> inline Share<gf2n>& Processor::get_S_ref(int i) { return get_S2_ref(i); }
