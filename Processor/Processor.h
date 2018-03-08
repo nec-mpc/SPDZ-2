@@ -324,6 +324,7 @@ class Processor : public ProcessorBase
   void POpen_Stop_prep_opens(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size);
 
   void PSkew_Bit_Decomp(const vector<int>& reg, int size);
+  void PSkew_Ring_Comp(const vector<int>& reg, int size);
 
   // Print the processor state
   friend ostream& operator<<(ostream& s,const Processor& P);

@@ -590,6 +590,34 @@ void Processor::PSkew_Bit_Decomp(const vector<int>& reg, int size)
 	load_shares(reg, Sh_PO, size);
 }
 
+void Processor::PSkew_Ring_Comp(const vector<int>& reg, int size)
+{
+	int sz=reg.size();
+
+	vector< Share<gfp> >& Sh_PO = get_Sh_PO<gfp>();
+	Sh_PO.clear();
+	Sh_PO.reserve(sz*size);
+
+	prep_shares(reg, Sh_PO, size);
+
+	share_t bits_in, rings_out;
+	bits_in.size = rings_out.size = zp_word64_size * 8;
+	bits_in.count = rings_out.count = Sh_PO.size();
+	bits_in.data = new u_int8_t[bits_in.size * bits_in.count];
+	rings_out.data = new u_int8_t[rings_out.size * rings_out.count];
+
+	export_shares(Sh_PO, bits_in);
+
+	if(0 != (*the_ext_lib.ext_skew_ring_comp)(&spdz_gfp_ext_context, &bits_in, &rings_out))
+	{
+		cerr << "Processor::PSkew_Ring_Comp extension library ext_skew_ring_comp() failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+	import_shares(rings_out, Sh_PO);
+	load_shares(reg, Sh_PO, size);
+}
+
 size_t Processor::get_zp_word64_size()
 {
 	size_t bit_size = gfp::get_ZpD().pr.numBits();
