@@ -683,6 +683,58 @@ void Processor::PInput_Share_Int(Share<gfp>& input_shared_value, const int input
 	delete sec_int_input.data;
 }
 
+void Processor::PInput_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id)
+{
+	clear_t clr_int_input;
+	clr_int_input.count = 1;
+	clr_int_input.size = zp_word64_size * 8;
+	clr_int_input.data = new u_int8_t[clr_int_input.size];
+	memset(clr_int_input.data, 0, clr_int_input.size);
+
+	share_t sec_int_input;
+	sec_int_input.count = 1;
+	sec_int_input.size = zp_word64_size * 8;
+	sec_int_input.data = new u_int8_t[sec_int_input.size];
+	memset(sec_int_input.data, 0, sec_int_input.size);
+
+	if(P.my_num() == input_party_id)
+	{
+		std::string str_input;
+		if(0 != read_input_line(input_file_int, str_input))
+		{
+			cerr << "Processor::PInput_Share_Int failed reading integer input value." << endl;
+			dlclose(the_ext_lib.ext_lib_handle);
+			abort();
+		}
+		const char * pfix = str_input.c_str();
+		if(0 != (*the_ext_lib.ext_make_input_from_fixed)(&spdz_gfp_ext_context, &pfix, 1, &clr_int_input))
+		{
+			cerr << "Processor::PInput_Share_Int extension library ext_make_input_from_fixed() failed." << endl;
+			dlclose(the_ext_lib.ext_lib_handle);
+			abort();
+		}
+	}
+
+	if(0 != (*the_ext_lib.ext_input_party)(&spdz_gfp_ext_context, input_party_id, &clr_int_input, &sec_int_input))
+	{
+		cerr << "Processor::PInput_Share_Int extension library ext_input_party() failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+
+	delete clr_int_input.data;
+
+	bigint b;
+	gfp mac, value;
+	mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, sec_int_input.data);
+	to_gfp(value, b);
+	mac.mul(MCp.get_alphai(), value);
+	input_shared_value.set_share(value);
+	input_shared_value.set_mac(mac);
+
+	delete sec_int_input.data;
+}
+
 size_t Processor::get_zp_word64_size()
 {
 	size_t bit_size = gfp::get_ZpD().pr.numBits();
