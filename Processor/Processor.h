@@ -327,6 +327,9 @@ class Processor : public ProcessorBase
   void PSkew_Ring_Comp(const vector<int>& reg, int size);
   void PInput_Share_Int(Share<gfp>& input_shared_value, const int input_party_id);
   void PInput_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id);
+  void PInput_Clear_Int(gfp& input_value, const int input_party_id);
+  void PSuggest_Optional_Verification();
+  void PFinal_Verification();
 
   // Print the processor state
   friend ostream& operator<<(ostream& s,const Processor& P);

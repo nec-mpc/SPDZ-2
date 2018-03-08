@@ -1664,6 +1664,15 @@ void Instruction::execute(Processor& Proc) const
       case E_INPUT_SHARE_FIX:
       	Proc.PInput_Share_Fix(Proc.get_Sp_ref(r[0]), n);
     	break;
+      case E_INPUT_CLEAR_INT:
+        Proc.PInput_Clear_Int(Proc.get_Cp_ref(r[0]), n);
+      	break;
+      case E_VERIFY_OPTIONAL_SUGGEST:
+    	Proc.PSuggest_Optional_Verification();
+    	break;
+      case E_VERIFY_FINAL:
+    	Proc.PFinal_Verification();
+    	break;
       default:
         printf("Case of opcode=%d not implemented yet\n",opcode);
         throw not_implemented();

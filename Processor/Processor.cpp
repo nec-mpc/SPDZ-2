@@ -702,14 +702,14 @@ void Processor::PInput_Share_Fix(Share<gfp>& input_shared_value, const int input
 		std::string str_input;
 		if(0 != read_input_line(input_file_int, str_input))
 		{
-			cerr << "Processor::PInput_Share_Int failed reading integer input value." << endl;
+			cerr << "Processor::PInput_Share_Fix failed reading fix input value." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
 		const char * pfix = str_input.c_str();
 		if(0 != (*the_ext_lib.ext_make_input_from_fixed)(&spdz_gfp_ext_context, &pfix, 1, &clr_int_input))
 		{
-			cerr << "Processor::PInput_Share_Int extension library ext_make_input_from_fixed() failed." << endl;
+			cerr << "Processor::PInput_Share_Fix extension library ext_make_input_from_fixed() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
@@ -717,7 +717,7 @@ void Processor::PInput_Share_Fix(Share<gfp>& input_shared_value, const int input
 
 	if(0 != (*the_ext_lib.ext_input_party)(&spdz_gfp_ext_context, input_party_id, &clr_int_input, &sec_int_input))
 	{
-		cerr << "Processor::PInput_Share_Int extension library ext_input_party() failed." << endl;
+		cerr << "Processor::PInput_Share_Fix extension library ext_input_party() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
@@ -733,6 +733,63 @@ void Processor::PInput_Share_Fix(Share<gfp>& input_shared_value, const int input
 	input_shared_value.set_mac(mac);
 
 	delete sec_int_input.data;
+}
+
+void Processor::PInput_Clear_Int(gfp& input_value, const int input_party_id)
+{
+	clear_t clr_int_input;
+	clr_int_input.count = 1;
+	clr_int_input.size = zp_word64_size * 8;
+	clr_int_input.data = new u_int8_t[clr_int_input.size];
+	memset(clr_int_input.data, 0, clr_int_input.size);
+
+	if(P.my_num() == input_party_id)
+	{
+		std::string str_input;
+		if(0 != read_input_line(input_file_int, str_input))
+		{
+			cerr << "Processor::PInput_Clear_Int failed reading integer input value." << endl;
+			dlclose(the_ext_lib.ext_lib_handle);
+			abort();
+		}
+		u_int64_t int_input = strtol(str_input.c_str(), NULL, 10);
+		if(0 != (*the_ext_lib.ext_make_input_from_integer)(&spdz_gfp_ext_context, &int_input, 1, &clr_int_input))
+		{
+			cerr << "Processor::PInput_Clear_Int extension library ext_make_input_from_integer() failed." << endl;
+			dlclose(the_ext_lib.ext_lib_handle);
+			abort();
+		}
+	}
+
+	bigint b;
+	mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, clr_int_input.data);
+	to_gfp(input_value, b);
+
+	delete clr_int_input.data;
+}
+
+void Processor::PSuggest_Optional_Verification()
+{
+	int error = 0;
+	if(0 != (*the_ext_lib.ext_verify_optional_suggest)(&spdz_gfp_ext_context, &error))
+	{
+		cerr << "Processor::PSuggest_Optional_Verification extension library ext_verify_optional_suggest() failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+	cout << "Optional verification suggestion returned " << error << endl;
+}
+
+void Processor::PFinal_Verification()
+{
+	int error = 0;
+	if(0 != (*the_ext_lib.ext_verify_final)(&spdz_gfp_ext_context, &error))
+	{
+		cerr << "Processor::PFinal_Verification extension library ext_verify_final() failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+	cout << "Final verification returned " << error << endl;
 }
 
 size_t Processor::get_zp_word64_size()
