@@ -56,9 +56,13 @@ typedef struct
 	// may hold other data
 } MPC_CTX;
 
-typedef struct{
+typedef struct __share_t {
 	u_int8_t * data;
 	size_t size, count, md_ring_size;
+
+	__share_t()
+	: data(NULL),  size(0), count(0), md_ring_size(0)
+	{}
 }share_t;
 
 typedef share_t clear_t;
@@ -330,6 +334,8 @@ class Processor : public ProcessorBase
   void PInput_Clear_Int(gfp& input_value, const int input_party_id);
   void PSuggest_Optional_Verification();
   void PFinal_Verification();
+  void PMult_Start(const vector<int>& reg, int size);
+  void PMult_Stop(const vector<int>& reg, int size);
 
   // Print the processor state
   friend ostream& operator<<(ostream& s,const Processor& P);
@@ -341,12 +347,14 @@ class Processor : public ProcessorBase
     MPC_CTX spdz_gfp_ext_context;
     size_t zp_word64_size;
     FILE * input_file_int, * input_file_fix, * input_file_share;
+    share_t factor1, factor2, product;
     static size_t get_zp_word64_size();
     void export_shares(const vector< Share<gfp> > & shares_in, share_t & shares_out);
     void import_shares(const share_t & shares_in, vector< Share<gfp> > & shares_out);
     int open_input_file();
     int close_input_file();
     int read_input_line(FILE * input_file, std::string & line);
+    void mult_stop_prep_products(const vector<int>& reg, int size);
 };
 
 template<> inline Share<gf2n>& Processor::get_S_ref(int i) { return get_S2_ref(i); }

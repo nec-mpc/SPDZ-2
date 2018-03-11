@@ -792,6 +792,113 @@ void Processor::PFinal_Verification()
 	cout << "Final verification returned " << error << endl;
 }
 
+void Processor::PMult_Start(const vector<int>& reg, int size)
+{
+	int sz=reg.size();
+
+	vector< Share<gfp> >& Sh_PO = get_Sh_PO<gfp>();
+	Sh_PO.clear();
+	Sh_PO.reserve(sz*size);
+
+	prep_shares(reg, Sh_PO, size);
+	if(Sh_PO.size()%2 != 0)
+	{
+		cerr << "Processor::PMult_Start called with an odd number of operands " << Sh_PO.size() << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+
+	vector<gfp>& PO = get_PO<gfp>();
+	PO.resize(sz*size);
+
+	vector< Share<gfp> > lhs_factors, rhs_factors;
+	vector< Share<gfp> >::const_iterator curr = Sh_PO.begin(), stop = Sh_PO.end();
+	while(curr != stop)
+	{
+		lhs_factors.push_back(*curr++);
+		rhs_factors.push_back(*curr++);
+	}
+
+	factor1.size = factor2.size = product.size = zp_word64_size * 8;
+	factor1.count = factor2.count = product.count = lhs_factors.size();
+	factor1.data = new u_int8_t[factor1.size * factor1.count];
+	factor2.data = new u_int8_t[factor2.size * factor2.count];
+	product.data = new u_int8_t[product.size * product.count];
+
+	export_shares(lhs_factors, factor1);
+	export_shares(rhs_factors, factor2);
+	memset(product.data, 0, product.size * product.count);
+
+	if(0 != (*the_ext_lib.ext_start_mult)(&spdz_gfp_ext_context, &factor1, &factor2, &product))
+	{
+		cerr << "Processor::PMult_Start extension library start_mult failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+	else
+	{
+		cout << "Processor::PMult_Start extension library start_mult launched." << endl;
+	}
+}
+
+void Processor::PMult_Stop(const vector<int>& reg, int size)
+{
+	if(0 != (*the_ext_lib.ext_stop_mult)(&spdz_gfp_ext_context))
+	{
+		cerr << "Processor::PMult_Stop library stop_mult failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+
+	mult_stop_prep_products(reg, size);
+
+	factor1.size = factor2.size = product.size = 0;
+	factor1.count = factor2.count = product.count = 0;
+	delete factor1.data;		factor1.data = NULL;
+	delete factor2.data;		factor2.data = NULL;
+	delete product.data;		product.data = NULL;
+
+	sent += reg.size() * size;
+	rounds++;
+}
+
+
+void Processor::mult_stop_prep_products(const vector<int>& reg, int size)
+{
+	bigint b;
+	gfp mac, value;
+	if (size>1)
+	{
+		size_t product_idx = 0;
+		for (typename vector<int>::const_iterator reg_it=reg.begin(); reg_it!=reg.end(); reg_it++)
+		{
+			vector<Share<gfp> >::iterator insert_point=get_S<gfp>().begin()+*reg_it;
+			for(int i = 0; i < size; ++i)
+			{
+				mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size,
+						   share_port_endian, share_port_nails, product.data + (product_idx * product.size));
+				to_gfp(value, b);
+				mac.mul(MCp.get_alphai(), value);
+				(*(insert_point + i)).set_share(value);
+				(*(insert_point + i)).set_share(mac);
+			}
+		}
+	}
+	else
+	{
+		int sz=reg.size();
+		for(int i = 0; i < sz; ++i)
+		{
+			mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size,
+					   share_port_endian, share_port_nails, product.data + (i * product.size));
+			to_gfp(value, b);
+			mac.mul(MCp.get_alphai(), value);
+			get_S_ref<gfp>(reg[i]).set_share(value);
+			get_S_ref<gfp>(reg[i]).set_share(mac);
+		}
+	}
+}
+
 size_t Processor::get_zp_word64_size()
 {
 	size_t bit_size = gfp::get_ZpD().pr.numBits();

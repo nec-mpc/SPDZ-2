@@ -1673,6 +1673,12 @@ void Instruction::execute(Processor& Proc) const
       case E_VERIFY_FINAL:
     	Proc.PFinal_Verification();
     	break;
+      case E_START_MULT:
+    	Proc.PMult_Start(start, size);
+    	break;
+      case E_STOP_MULT:
+      	Proc.PMult_Stop(start, size);
+      	break;
       default:
         printf("Case of opcode=%d not implemented yet\n",opcode);
         throw not_implemented();
