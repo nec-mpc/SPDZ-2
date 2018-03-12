@@ -21,7 +21,7 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
   private_input_filename(get_filename(PREP_DIR "Private-Input-",true)),
   input2(*this,MC2),inputp(*this,MCp),privateOutput2(*this),privateOutputp(*this),sent(0),rounds(0),
   external_clients(ExternalClients(P.my_num(), DataF.prep_data_dir)),binary_file_io(Binary_File_IO()),
-  input_file_int(NULL), input_file_fix(NULL), input_file_share(NULL)
+  input_file_int(NULL), input_file_fix(NULL), input_file_share(NULL), mult_allocated(0), open_allocated(0)
 {
   reset(program,0);
 
@@ -52,6 +52,8 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
 Processor::~Processor()
 {
   cerr << "Sent " << sent << " elements in " << rounds << " rounds" << endl;
+  mult_clear();
+  open_clear();
   close_input_file();
   (*the_ext_lib.ext_term)(&spdz_gfp_ext_context);
   dlclose(the_ext_lib.ext_lib_handle);
@@ -575,7 +577,7 @@ static const size_t share_port_size = 8;
 static const int share_port_endian = 0;
 static const size_t share_port_nails = 0;
 
-void Processor::PSkew_Bit_Decomp(const vector<int>& reg, int size)
+void Processor::GFP_Skew_Bit_Decomp(const vector<int>& reg, int size)
 {
 	int sz=reg.size();
 
@@ -595,7 +597,7 @@ void Processor::PSkew_Bit_Decomp(const vector<int>& reg, int size)
 
 	if(0 != (*the_ext_lib.ext_skew_bit_decomp)(&spdz_gfp_ext_context, &rings_in, &bits_out))
 	{
-		cerr << "Processor::PSkew_Bit_Decomp extension library ext_skew_bit_decomp() failed." << endl;
+		cerr << "Processor::GFP_Skew_Bit_Decomp extension library ext_skew_bit_decomp() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
@@ -603,7 +605,7 @@ void Processor::PSkew_Bit_Decomp(const vector<int>& reg, int size)
 	load_shares(reg, Sh_PO, size);
 }
 
-void Processor::PSkew_Ring_Comp(const vector<int>& reg, int size)
+void Processor::GFP_Skew_Ring_Comp(const vector<int>& reg, int size)
 {
 	int sz=reg.size();
 
@@ -623,7 +625,7 @@ void Processor::PSkew_Ring_Comp(const vector<int>& reg, int size)
 
 	if(0 != (*the_ext_lib.ext_skew_ring_comp)(&spdz_gfp_ext_context, &bits_in, &rings_out))
 	{
-		cerr << "Processor::PSkew_Ring_Comp extension library ext_skew_ring_comp() failed." << endl;
+		cerr << "Processor::GFP_Skew_Ring_Comp extension library ext_skew_ring_comp() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
@@ -631,7 +633,7 @@ void Processor::PSkew_Ring_Comp(const vector<int>& reg, int size)
 	load_shares(reg, Sh_PO, size);
 }
 
-void Processor::PInput_Share_Int(Share<gfp>& input_shared_value, const int input_party_id)
+void Processor::GFP_Input_Share_Int(Share<gfp>& input_shared_value, const int input_party_id)
 {
 	clear_t clr_int_input;
 	clr_int_input.count = 1;
@@ -650,14 +652,14 @@ void Processor::PInput_Share_Int(Share<gfp>& input_shared_value, const int input
 		std::string str_input;
 		if(0 != read_input_line(input_file_int, str_input))
 		{
-			cerr << "Processor::PInput_Share_Int failed reading integer input value." << endl;
+			cerr << "Processor::GFP_Input_Share_Int failed reading integer input value." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
 		u_int64_t int_input = strtol(str_input.c_str(), NULL, 10);
 		if(0 != (*the_ext_lib.ext_make_input_from_integer)(&spdz_gfp_ext_context, &int_input, 1, &clr_int_input))
 		{
-			cerr << "Processor::PInput_Share_Int extension library ext_make_input_from_integer() failed." << endl;
+			cerr << "Processor::GFP_Input_Share_Int extension library ext_make_input_from_integer() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
@@ -665,7 +667,7 @@ void Processor::PInput_Share_Int(Share<gfp>& input_shared_value, const int input
 
 	if(0 != (*the_ext_lib.ext_input_party)(&spdz_gfp_ext_context, input_party_id, &clr_int_input, &sec_int_input))
 	{
-		cerr << "Processor::PInput_Share_Int extension library ext_input_party() failed." << endl;
+		cerr << "Processor::GFP_Input_Share_Int extension library ext_input_party() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
@@ -683,7 +685,7 @@ void Processor::PInput_Share_Int(Share<gfp>& input_shared_value, const int input
 	delete sec_int_input.data;
 }
 
-void Processor::PInput_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id)
+void Processor::GFP_Input_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id)
 {
 	clear_t clr_int_input;
 	clr_int_input.count = 1;
@@ -702,14 +704,14 @@ void Processor::PInput_Share_Fix(Share<gfp>& input_shared_value, const int input
 		std::string str_input;
 		if(0 != read_input_line(input_file_int, str_input))
 		{
-			cerr << "Processor::PInput_Share_Fix failed reading fix input value." << endl;
+			cerr << "Processor::GFP_Input_Share_Fix failed reading fix input value." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
 		const char * pfix = str_input.c_str();
 		if(0 != (*the_ext_lib.ext_make_input_from_fixed)(&spdz_gfp_ext_context, &pfix, 1, &clr_int_input))
 		{
-			cerr << "Processor::PInput_Share_Fix extension library ext_make_input_from_fixed() failed." << endl;
+			cerr << "Processor::GFP_Input_Share_Fix extension library ext_make_input_from_fixed() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
@@ -717,7 +719,7 @@ void Processor::PInput_Share_Fix(Share<gfp>& input_shared_value, const int input
 
 	if(0 != (*the_ext_lib.ext_input_party)(&spdz_gfp_ext_context, input_party_id, &clr_int_input, &sec_int_input))
 	{
-		cerr << "Processor::PInput_Share_Fix extension library ext_input_party() failed." << endl;
+		cerr << "Processor::GFP_Input_Share_Fix extension library ext_input_party() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
@@ -735,7 +737,7 @@ void Processor::PInput_Share_Fix(Share<gfp>& input_shared_value, const int input
 	delete sec_int_input.data;
 }
 
-void Processor::PInput_Clear_Int(gfp& input_value, const int input_party_id)
+void Processor::GFP_Input_Clear_Int(gfp& input_value, const int input_party_id)
 {
 	clear_t clr_int_input;
 	clr_int_input.count = 1;
@@ -748,14 +750,14 @@ void Processor::PInput_Clear_Int(gfp& input_value, const int input_party_id)
 		std::string str_input;
 		if(0 != read_input_line(input_file_int, str_input))
 		{
-			cerr << "Processor::PInput_Clear_Int failed reading integer input value." << endl;
+			cerr << "Processor::GFP_Input_Clear_Int failed reading integer input value." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
 		u_int64_t int_input = strtol(str_input.c_str(), NULL, 10);
 		if(0 != (*the_ext_lib.ext_make_input_from_integer)(&spdz_gfp_ext_context, &int_input, 1, &clr_int_input))
 		{
-			cerr << "Processor::PInput_Clear_Int extension library ext_make_input_from_integer() failed." << endl;
+			cerr << "Processor::GFP_Input_Clear_Int extension library ext_make_input_from_integer() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
@@ -768,31 +770,31 @@ void Processor::PInput_Clear_Int(gfp& input_value, const int input_party_id)
 	delete clr_int_input.data;
 }
 
-void Processor::PSuggest_Optional_Verification()
+void Processor::GFP_Suggest_Optional_Verification()
 {
 	int error = 0;
 	if(0 != (*the_ext_lib.ext_verify_optional_suggest)(&spdz_gfp_ext_context, &error))
 	{
-		cerr << "Processor::PSuggest_Optional_Verification extension library ext_verify_optional_suggest() failed." << endl;
+		cerr << "Processor::GFP_Suggest_Optional_Verification extension library ext_verify_optional_suggest() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
 	cout << "Optional verification suggestion returned " << error << endl;
 }
 
-void Processor::PFinal_Verification()
+void Processor::GFP_Final_Verification()
 {
 	int error = 0;
 	if(0 != (*the_ext_lib.ext_verify_final)(&spdz_gfp_ext_context, &error))
 	{
-		cerr << "Processor::PFinal_Verification extension library ext_verify_final() failed." << endl;
+		cerr << "Processor::GFP_Final_Verification extension library ext_verify_final() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
 	cout << "Final verification returned " << error << endl;
 }
 
-void Processor::PMult_Start(const vector<int>& reg, int size)
+void Processor::GFP_Mult_Start(const vector<int>& reg, int size)
 {
 	int sz=reg.size();
 
@@ -803,7 +805,7 @@ void Processor::PMult_Start(const vector<int>& reg, int size)
 	prep_shares(reg, Sh_PO, size);
 	if(Sh_PO.size()%2 != 0)
 	{
-		cerr << "Processor::PMult_Start called with an odd number of operands " << Sh_PO.size() << endl;
+		cerr << "Processor::GFP_Mult_Start called with an odd number of operands " << Sh_PO.size() << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
@@ -819,49 +821,66 @@ void Processor::PMult_Start(const vector<int>& reg, int size)
 		rhs_factors.push_back(*curr++);
 	}
 
-	factor1.size = factor2.size = product.size = zp_word64_size * 8;
-	factor1.count = factor2.count = product.count = lhs_factors.size();
-	factor1.data = new u_int8_t[factor1.size * factor1.count];
-	factor2.data = new u_int8_t[factor2.size * factor2.count];
-	product.data = new u_int8_t[product.size * product.count];
+	mult_allocate(lhs_factors.size());
 
-	export_shares(lhs_factors, factor1);
-	export_shares(rhs_factors, factor2);
-	memset(product.data, 0, product.size * product.count);
+	export_shares(lhs_factors, mult_factor1);
+	export_shares(rhs_factors, mult_factor2);
+	memset(mult_product.data, 0, mult_product.size * mult_product.count);
 
-	if(0 != (*the_ext_lib.ext_start_mult)(&spdz_gfp_ext_context, &factor1, &factor2, &product))
+	if(0 != (*the_ext_lib.ext_start_mult)(&spdz_gfp_ext_context, &mult_factor1, &mult_factor2, &mult_product))
 	{
-		cerr << "Processor::PMult_Start extension library start_mult failed." << endl;
+		cerr << "Processor::GFP_Mult_Start extension library start_mult failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
 	else
 	{
-		cout << "Processor::PMult_Start extension library start_mult launched." << endl;
+		cout << "Processor::GFP_Mult_Start extension library start_mult launched." << endl;
 	}
 }
 
-void Processor::PMult_Stop(const vector<int>& reg, int size)
+void Processor::GFP_Mult_Stop(const vector<int>& reg, int size)
 {
 	if(0 != (*the_ext_lib.ext_stop_mult)(&spdz_gfp_ext_context))
 	{
-		cerr << "Processor::PMult_Stop library stop_mult failed." << endl;
+		cerr << "Processor::GFP_Mult_Stop library stop_mult failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
 
 	mult_stop_prep_products(reg, size);
 
-	factor1.size = factor2.size = product.size = 0;
-	factor1.count = factor2.count = product.count = 0;
-	delete factor1.data;		factor1.data = NULL;
-	delete factor2.data;		factor2.data = NULL;
-	delete product.data;		product.data = NULL;
-
 	sent += reg.size() * size;
 	rounds++;
 }
 
+void Processor::GFP_Open_Start(const vector<int>& reg, int size)
+{
+	int sz=reg.size();
+
+	vector< Share<gfp> >& Sh_PO = get_Sh_PO<gfp>();
+	Sh_PO.clear();
+	Sh_PO.reserve(sz*size);
+
+	prep_shares(reg, Sh_PO, size);
+
+	vector<gfp>& PO = get_PO<gfp>();
+	PO.resize(sz*size);
+
+	open_allocate(Sh_PO.size());
+	export_shares(Sh_PO, open_shares);
+
+	if(0 != (*the_ext_lib.ext_start_open)(&spdz_gfp_ext_context, &open_shares, &open_clears))
+	{
+		cerr << "Processor::GFP_Open_Start library start_open failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+	else
+	{
+		cout << "Processor::GFP_Open_Start extension library start_open launched." << endl;
+	}
+}
 
 void Processor::mult_stop_prep_products(const vector<int>& reg, int size)
 {
@@ -875,8 +894,8 @@ void Processor::mult_stop_prep_products(const vector<int>& reg, int size)
 			vector<Share<gfp> >::iterator insert_point=get_S<gfp>().begin()+*reg_it;
 			for(int i = 0; i < size; ++i)
 			{
-				mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size,
-						   share_port_endian, share_port_nails, product.data + (product_idx * product.size));
+				mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian,
+						   share_port_nails, mult_product.data + (product_idx * mult_product.size));
 				to_gfp(value, b);
 				mac.mul(MCp.get_alphai(), value);
 				(*(insert_point + i)).set_share(value);
@@ -889,8 +908,8 @@ void Processor::mult_stop_prep_products(const vector<int>& reg, int size)
 		int sz=reg.size();
 		for(int i = 0; i < sz; ++i)
 		{
-			mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size,
-					   share_port_endian, share_port_nails, product.data + (i * product.size));
+			mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian,
+					   share_port_nails, mult_product.data + (i * mult_product.size));
 			to_gfp(value, b);
 			mac.mul(MCp.get_alphai(), value);
 			get_S_ref<gfp>(reg[i]).set_share(value);
@@ -995,6 +1014,35 @@ int Processor::read_input_line(FILE * input_file, std::string & line)
 	}
 	else
 		return -1;
+}
+
+void Processor::mult_allocate(const size_t required_count)
+{
+	if(required_count > mult_allocated)
+	{
+		mult_clear();
+		mult_factor1.data = new u_int8_t[mult_factor1.size * mult_factor1.count];
+		mult_factor2.data = new u_int8_t[mult_factor2.size * mult_factor2.count];
+		mult_product.data = new u_int8_t[mult_product.size * mult_product.count];
+		mult_factor1.size = mult_factor2.size = mult_product.size = zp_word64_size * 8;
+		mult_allocated = mult_factor1.count = mult_factor2.count = mult_product.count = required_count;
+	}
+	else
+	{
+		mult_factor1.count = mult_factor2.count = mult_product.count = required_count;
+	}
+}
+
+void Processor::mult_clear()
+{
+	if(0 < mult_allocated)
+	{
+		delete mult_factor1.data;		mult_factor1.data = NULL;
+		delete mult_factor2.data;		mult_factor2.data = NULL;
+		delete mult_product.data;		mult_product.data = NULL;
+		mult_factor1.size = mult_factor2.size = mult_product.size = 0;
+		mult_factor1.count = mult_factor2.count = mult_product.count = mult_allocated = 0;
+	}
 }
 //*****************************************************************************************//
 

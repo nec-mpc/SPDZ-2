@@ -1653,32 +1653,38 @@ void Instruction::execute(Processor& Proc) const
         Proc.DataF.get<gf2n>(Proc, r, start, size);
         return;
       case E_SKEW_BIT_DEC:
-    	Proc.PSkew_Bit_Decomp(start, size);
+    	Proc.GFP_Skew_Bit_Decomp(start, size);
     	break;
       case E_SKEW_RING_REC:
-    	Proc.PSkew_Ring_Comp(start, size);
+    	Proc.GFP_Skew_Ring_Comp(start, size);
     	break;
       case E_INPUT_SHARE_INT:
-    	Proc.PInput_Share_Int(Proc.get_Sp_ref(r[0]), n);
+    	Proc.GFP_Input_Share_Int(Proc.get_Sp_ref(r[0]), n);
     	break;
       case E_INPUT_SHARE_FIX:
-      	Proc.PInput_Share_Fix(Proc.get_Sp_ref(r[0]), n);
+      	Proc.GFP_Input_Share_Fix(Proc.get_Sp_ref(r[0]), n);
     	break;
       case E_INPUT_CLEAR_INT:
-        Proc.PInput_Clear_Int(Proc.get_Cp_ref(r[0]), n);
+        Proc.GFP_Input_Clear_Int(Proc.get_Cp_ref(r[0]), n);
       	break;
       case E_VERIFY_OPTIONAL_SUGGEST:
-    	Proc.PSuggest_Optional_Verification();
+    	Proc.GFP_Suggest_Optional_Verification();
     	break;
       case E_VERIFY_FINAL:
-    	Proc.PFinal_Verification();
+    	Proc.GFP_Final_Verification();
     	break;
       case E_START_MULT:
-    	Proc.PMult_Start(start, size);
+    	Proc.GFP_Mult_Start(start, size);
     	break;
       case E_STOP_MULT:
-      	Proc.PMult_Stop(start, size);
+      	Proc.GFP_Mult_Stop(start, size);
       	break;
+      case E_START_OPEN:
+      	Proc.GFP_Open_Start(start, size);
+      	break;
+      case E_STOP_OPEN:
+        	Proc.GFP_Open_Stop(start, size);
+        	break;
       default:
         printf("Case of opcode=%d not implemented yet\n",opcode);
         throw not_implemented();

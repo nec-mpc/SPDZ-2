@@ -63,6 +63,12 @@ typedef struct __share_t {
 	__share_t()
 	: data(NULL),  size(0), count(0), md_ring_size(0)
 	{}
+
+	void clear()
+	{
+		if(NULL != data) { delete data; data = NULL; }
+		size = count = md_ring_size = 0;
+	}
 }share_t;
 
 typedef share_t clear_t;
@@ -327,15 +333,17 @@ class Processor : public ProcessorBase
   template <class T>
   void POpen_Stop_prep_opens(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size);
 
-  void PSkew_Bit_Decomp(const vector<int>& reg, int size);
-  void PSkew_Ring_Comp(const vector<int>& reg, int size);
-  void PInput_Share_Int(Share<gfp>& input_shared_value, const int input_party_id);
-  void PInput_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id);
-  void PInput_Clear_Int(gfp& input_value, const int input_party_id);
-  void PSuggest_Optional_Verification();
-  void PFinal_Verification();
-  void PMult_Start(const vector<int>& reg, int size);
-  void PMult_Stop(const vector<int>& reg, int size);
+  void GFP_Skew_Bit_Decomp(const vector<int>& reg, int size);
+  void GFP_Skew_Ring_Comp(const vector<int>& reg, int size);
+  void GFP_Input_Share_Int(Share<gfp>& input_shared_value, const int input_party_id);
+  void GFP_Input_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id);
+  void GFP_Input_Clear_Int(gfp& input_value, const int input_party_id);
+  void GFP_Suggest_Optional_Verification();
+  void GFP_Final_Verification();
+  void GFP_Mult_Start(const vector<int>& reg, int size);
+  void GFP_Mult_Stop(const vector<int>& reg, int size);
+  void GFP_Open_Start(const vector<int>& reg, int size);
+  void GFP_Open_Stop(const vector<int>& reg, int size);
 
   // Print the processor state
   friend ostream& operator<<(ostream& s,const Processor& P);
@@ -347,7 +355,6 @@ class Processor : public ProcessorBase
     MPC_CTX spdz_gfp_ext_context;
     size_t zp_word64_size;
     FILE * input_file_int, * input_file_fix, * input_file_share;
-    share_t factor1, factor2, product;
     static size_t get_zp_word64_size();
     void export_shares(const vector< Share<gfp> > & shares_in, share_t & shares_out);
     void import_shares(const share_t & shares_in, vector< Share<gfp> > & shares_out);
@@ -355,6 +362,17 @@ class Processor : public ProcessorBase
     int close_input_file();
     int read_input_line(FILE * input_file, std::string & line);
     void mult_stop_prep_products(const vector<int>& reg, int size);
+
+    size_t mult_allocated;
+    share_t mult_factor1, mult_factor2, mult_product;
+    void mult_allocate(const size_t required_count);
+    void mult_clear();
+
+    size_t open_allocated;
+    share_t open_shares;
+    clear_t open_clears;
+    void open_allocate(const size_t required_count);
+    void open_clear();
 };
 
 template<> inline Share<gf2n>& Processor::get_S_ref(int i) { return get_S2_ref(i); }
