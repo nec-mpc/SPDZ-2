@@ -1667,6 +1667,9 @@ void Instruction::execute(Processor& Proc) const
       case E_INPUT_CLEAR_INT:
         Proc.GFP_Input_Clear_Int(Proc.get_Cp_ref(r[0]), n);
       	break;
+      case E_INPUT_CLEAR_FIX:
+        Proc.GFP_Input_Clear_Fix(Proc.get_Cp_ref(r[0]), n);
+        break;
       case E_VERIFY_OPTIONAL_SUGGEST:
     	Proc.GFP_Suggest_Optional_Verification();
     	break;
@@ -1683,8 +1686,8 @@ void Instruction::execute(Processor& Proc) const
       	Proc.GFP_Open_Start(start, size);
       	break;
       case E_STOP_OPEN:
-        	Proc.GFP_Open_Stop(start, size);
-        	break;
+        Proc.GFP_Open_Stop(start, size);
+        break;
       default:
         printf("Case of opcode=%d not implemented yet\n",opcode);
         throw not_implemented();

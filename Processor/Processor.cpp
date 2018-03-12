@@ -770,6 +770,39 @@ void Processor::GFP_Input_Clear_Int(gfp& input_value, const int input_party_id)
 	delete clr_int_input.data;
 }
 
+void Processor::GFP_Input_Clear_Fix(gfp& input_value, const int input_party_id)
+{
+	clear_t clr_fix_input;
+	clr_fix_input.count = 1;
+	clr_fix_input.size = zp_word64_size * 8;
+	clr_fix_input.data = new u_int8_t[clr_fix_input.size];
+	memset(clr_fix_input.data, 0, clr_fix_input.size);
+
+	if(P.my_num() == input_party_id)
+	{
+		std::string str_input;
+		if(0 != read_input_line(input_file_fix, str_input))
+		{
+			cerr << "Processor::GFP_Input_Clear_Fix failed reading fix input value." << endl;
+			dlclose(the_ext_lib.ext_lib_handle);
+			abort();
+		}
+		const char * fix_input = str_input.c_str();
+		if(0 != (*the_ext_lib.ext_make_input_from_fixed)(&spdz_gfp_ext_context, &fix_input, 1, &clr_fix_input))
+		{
+			cerr << "Processor::GFP_Input_Clear_Fix extension library ext_make_input_from_fixed() failed." << endl;
+			dlclose(the_ext_lib.ext_lib_handle);
+			abort();
+		}
+	}
+
+	bigint b;
+	mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, clr_fix_input.data);
+	to_gfp(input_value, b);
+
+	delete clr_fix_input.data;
+}
+
 void Processor::GFP_Suggest_Optional_Verification()
 {
 	int error = 0;
