@@ -358,6 +358,7 @@ class Processor : public ProcessorBase
     static size_t get_zp_word64_size();
     void export_shares(const vector< Share<gfp> > & shares_in, share_t & shares_out);
     void import_shares(const share_t & shares_in, vector< Share<gfp> > & shares_out);
+    void import_clears(const clear_t & clear_in, vector< gfp > & clears_out);
     int open_input_file();
     int close_input_file();
     int read_input_line(FILE * input_file, std::string & line);

@@ -882,6 +882,24 @@ void Processor::GFP_Open_Start(const vector<int>& reg, int size)
 	}
 }
 
+void Processor::GFP_Open_Stop(const vector<int>& reg, int size)
+{
+	if(0 != (*the_ext_lib.ext_stop_open)(&spdz_gfp_ext_context))
+	{
+		cerr << "Processor::GFP_Open_Stop library start_open failed." << endl;
+		dlclose(the_ext_lib.ext_lib_handle);
+		abort();
+	}
+
+	vector<gfp>& PO = get_PO<gfp>();
+	vector<gfp>& C = get_C<gfp>();
+	int sz=reg.size();
+	PO.resize(sz*size);
+	import_clears(open_clears, PO);
+
+	POpen_Stop_prep_opens(reg, PO, C, size);
+}
+
 void Processor::mult_stop_prep_products(const vector<int>& reg, int size)
 {
 	bigint b;
@@ -955,6 +973,18 @@ void Processor::import_shares(const share_t & shares_in, vector< Share<gfp> > & 
 	}
 }
 
+void Processor::import_clears(const clear_t & clear_in, vector< gfp > & clears_out)
+{
+	assert(clear_in.count == clears_out.size());
+
+	bigint b;
+	for(size_t i = 0; i < clear_in.count; ++i)
+	{
+		mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, clear_in.data + (i * clear_in.size));
+		to_gfp(clears_out[i], b);
+	}
+}
+
 int Processor::open_input_file()
 {
 	char buffer[256];
@@ -1021,11 +1051,11 @@ void Processor::mult_allocate(const size_t required_count)
 	if(required_count > mult_allocated)
 	{
 		mult_clear();
+		mult_allocated = mult_factor1.count = mult_factor2.count = mult_product.count = required_count;
+		mult_factor1.size = mult_factor2.size = mult_product.size = zp_word64_size * 8;
 		mult_factor1.data = new u_int8_t[mult_factor1.size * mult_factor1.count];
 		mult_factor2.data = new u_int8_t[mult_factor2.size * mult_factor2.count];
 		mult_product.data = new u_int8_t[mult_product.size * mult_product.count];
-		mult_factor1.size = mult_factor2.size = mult_product.size = zp_word64_size * 8;
-		mult_allocated = mult_factor1.count = mult_factor2.count = mult_product.count = required_count;
 	}
 	else
 	{
@@ -1044,6 +1074,38 @@ void Processor::mult_clear()
 		mult_factor1.count = mult_factor2.count = mult_product.count = mult_allocated = 0;
 	}
 }
+
+/*
+size_t open_allocated;
+share_t open_shares;
+clear_t open_clears;*/
+void Processor::open_allocate(const size_t required_count)
+{
+	if(required_count > open_allocated)
+	{
+		open_clear();
+		open_shares.count = open_clears.count = open_allocated = required_count;
+		open_shares.size = open_clears.size = zp_word64_size * 8;
+		open_shares.data = new u_int8_t[open_shares.size * open_shares.count];
+		open_clears.data = new u_int8_t[open_clears.size * open_clears.count];
+	}
+	else
+	{
+		open_shares.count = open_clears.count = required_count;
+	}
+}
+
+void Processor::open_clear()
+{
+	if(0 < open_allocated)
+	{
+		delete open_shares.data;		open_shares.data = NULL;
+		delete open_clears.data;		open_clears.data = NULL;
+		open_shares.size = open_clears.size = 0;
+		open_shares.count = open_clears.count = open_allocated = 0;
+	}
+}
+
 //*****************************************************************************************//
 
 #define LOAD_LIB_METHOD(Name,Proc)	\
