@@ -633,31 +633,38 @@ void Processor::Ext_Skew_Ring_Comp(const vector<int>& reg, int size)
 	load_shares(reg, Sh_PO, size);
 }
 
-void Processor::Ext_Input_Share_Int(Share<gfp>& input_shared_value, const int input_party_id)
+void Processor::Ext_Input_Share_Int(const vector<int>& reg, int size, const int input_party_id)
 {
+	size_t required_input_count = reg.size();
+	size_t required_input_size = required_input_count * zp_word64_size * 8;
+
 	clear_t clr_int_input;
-	clr_int_input.count = 1;
+	clr_int_input.count = required_input_count;
 	clr_int_input.size = zp_word64_size * 8;
-	clr_int_input.data = new u_int8_t[clr_int_input.size];
-	memset(clr_int_input.data, 0, clr_int_input.size);
+	clr_int_input.data = new u_int8_t[required_input_size];
+	memset(clr_int_input.data, 0, required_input_size);
 
 	share_t sec_int_input;
-	sec_int_input.count = 1;
+	sec_int_input.count = required_input_count;
 	sec_int_input.size = zp_word64_size * 8;
-	sec_int_input.data = new u_int8_t[sec_int_input.size];
-	memset(sec_int_input.data, 0, sec_int_input.size);
+	sec_int_input.data = new u_int8_t[required_input_size];
+	memset(sec_int_input.data, 0, required_input_size);
 
 	if(P.my_num() == input_party_id)
 	{
+		std::vector<u_int64_t> int_inputs(required_input_count);
 		std::string str_input;
-		if(0 != read_input_line(input_file_int, str_input))
+		for(size_t i = 0; i < required_input_count; ++i)
 		{
-			cerr << "Processor::Ext_Input_Share_Int failed reading integer input value." << endl;
-			dlclose(the_ext_lib.ext_lib_handle);
-			abort();
+			if(0 != read_input_line(input_file_int, str_input))
+			{
+				cerr << "Processor::Ext_Input_Share_Int failed reading integer input value " << i << endl;
+				dlclose(the_ext_lib.ext_lib_handle);
+				abort();
+			}
+			int_inputs[i] = strtol(str_input.c_str(), NULL, 10);
 		}
-		u_int64_t int_input = strtol(str_input.c_str(), NULL, 10);
-		if(0 != (*the_ext_lib.ext_make_input_from_integer)(&spdz_gfp_ext_context, &int_input, 1, &clr_int_input))
+		if(0 != (*the_ext_lib.ext_make_input_from_integer)(&spdz_gfp_ext_context, &int_inputs[0], required_input_count, &clr_int_input))
 		{
 			cerr << "Processor::Ext_Input_Share_Int extension library ext_make_input_from_integer() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
@@ -674,13 +681,13 @@ void Processor::Ext_Input_Share_Int(Share<gfp>& input_shared_value, const int in
 
 	delete clr_int_input.data;
 
-	bigint b;
-	gfp mac, value;
-	mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, sec_int_input.data);
-	to_gfp(value, b);
-	mac.mul(MCp.get_alphai(), value);
-	input_shared_value.set_share(value);
-	input_shared_value.set_mac(mac);
+	int sz=reg.size();
+	vector< Share<gfp> >& Sh_PO = get_Sh_PO<gfp>();
+	Sh_PO.clear();
+	Sh_PO.reserve(sz*size);
+
+	import_shares(sec_int_input, Sh_PO);
+	load_shares(reg, Sh_PO, size);
 
 	delete sec_int_input.data;
 }
