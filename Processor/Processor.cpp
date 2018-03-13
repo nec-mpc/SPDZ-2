@@ -770,7 +770,7 @@ void Processor::Ext_Input_Clear_Int(gfp& input_value, const int input_party_id)
 	delete clr_int_input.data;
 }
 
-void Processor::GFP_Input_Clear_Fix(gfp& input_value, const int input_party_id)
+void Processor::Ext_Input_Clear_Fix(gfp& input_value, const int input_party_id)
 {
 	clear_t clr_fix_input;
 	clr_fix_input.count = 1;
@@ -783,14 +783,14 @@ void Processor::GFP_Input_Clear_Fix(gfp& input_value, const int input_party_id)
 		std::string str_input;
 		if(0 != read_input_line(input_file_fix, str_input))
 		{
-			cerr << "Processor::GFP_Input_Clear_Fix failed reading fix input value." << endl;
+			cerr << "Processor::Ext_Input_Clear_Fix failed reading fix input value." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
 		const char * fix_input = str_input.c_str();
 		if(0 != (*the_ext_lib.ext_make_input_from_fixed)(&spdz_gfp_ext_context, &fix_input, 1, &clr_fix_input))
 		{
-			cerr << "Processor::GFP_Input_Clear_Fix extension library ext_make_input_from_fixed() failed." << endl;
+			cerr << "Processor::Ext_Input_Clear_Fix extension library ext_make_input_from_fixed() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
