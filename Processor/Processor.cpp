@@ -685,7 +685,7 @@ void Processor::Ext_Input_Share_Int(Share<gfp>& input_shared_value, const int in
 	delete sec_int_input.data;
 }
 
-void Processor::GFP_Input_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id)
+void Processor::Ext_Input_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id)
 {
 	clear_t clr_int_input;
 	clr_int_input.count = 1;
@@ -704,14 +704,14 @@ void Processor::GFP_Input_Share_Fix(Share<gfp>& input_shared_value, const int in
 		std::string str_input;
 		if(0 != read_input_line(input_file_int, str_input))
 		{
-			cerr << "Processor::GFP_Input_Share_Fix failed reading fix input value." << endl;
+			cerr << "Processor::Ext_Input_Share_Fix failed reading fix input value." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
 		const char * pfix = str_input.c_str();
 		if(0 != (*the_ext_lib.ext_make_input_from_fixed)(&spdz_gfp_ext_context, &pfix, 1, &clr_int_input))
 		{
-			cerr << "Processor::GFP_Input_Share_Fix extension library ext_make_input_from_fixed() failed." << endl;
+			cerr << "Processor::Ext_Input_Share_Fix extension library ext_make_input_from_fixed() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
@@ -719,7 +719,7 @@ void Processor::GFP_Input_Share_Fix(Share<gfp>& input_shared_value, const int in
 
 	if(0 != (*the_ext_lib.ext_input_party)(&spdz_gfp_ext_context, input_party_id, &clr_int_input, &sec_int_input))
 	{
-		cerr << "Processor::GFP_Input_Share_Fix extension library ext_input_party() failed." << endl;
+		cerr << "Processor::Ext_Input_Share_Fix extension library ext_input_party() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
