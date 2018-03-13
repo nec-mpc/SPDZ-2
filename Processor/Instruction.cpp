@@ -1656,7 +1656,7 @@ void Instruction::execute(Processor& Proc) const
     	Proc.Ext_Skew_Bit_Decomp(start, size);
     	break;
       case E_SKEW_RING_REC:
-    	Proc.GFP_Skew_Ring_Comp(start, size);
+    	Proc.Ext_Skew_Ring_Comp(start, size);
     	break;
       case E_INPUT_SHARE_INT:
     	Proc.GFP_Input_Share_Int(Proc.get_Sp_ref(r[0]), n);

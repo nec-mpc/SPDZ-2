@@ -605,7 +605,7 @@ void Processor::Ext_Skew_Bit_Decomp(const vector<int>& reg, int size)
 	load_shares(reg, Sh_PO, size);
 }
 
-void Processor::GFP_Skew_Ring_Comp(const vector<int>& reg, int size)
+void Processor::Ext_Skew_Ring_Comp(const vector<int>& reg, int size)
 {
 	int sz=reg.size();
 
@@ -625,7 +625,7 @@ void Processor::GFP_Skew_Ring_Comp(const vector<int>& reg, int size)
 
 	if(0 != (*the_ext_lib.ext_skew_ring_comp)(&spdz_gfp_ext_context, &bits_in, &rings_out))
 	{
-		cerr << "Processor::GFP_Skew_Ring_Comp extension library ext_skew_ring_comp() failed." << endl;
+		cerr << "Processor::Ext_Skew_Ring_Comp extension library ext_skew_ring_comp() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}

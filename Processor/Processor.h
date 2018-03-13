@@ -334,7 +334,7 @@ class Processor : public ProcessorBase
   void POpen_Stop_prep_opens(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size);
 
   void Ext_Skew_Bit_Decomp(const vector<int>& reg, int size);
-  void GFP_Skew_Ring_Comp(const vector<int>& reg, int size);
+  void Ext_Skew_Ring_Comp(const vector<int>& reg, int size);
   void GFP_Input_Share_Int(Share<gfp>& input_shared_value, const int input_party_id);
   void GFP_Input_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id);
   void GFP_Input_Clear_Int(gfp& input_value, const int input_party_id);
