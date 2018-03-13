@@ -1653,7 +1653,7 @@ void Instruction::execute(Processor& Proc) const
         Proc.DataF.get<gf2n>(Proc, r, start, size);
         return;
       case E_SKEW_BIT_DEC:
-    	Proc.GFP_Skew_Bit_Decomp(start, size);
+    	Proc.Ext_Skew_Bit_Decomp(start, size);
     	break;
       case E_SKEW_RING_REC:
     	Proc.GFP_Skew_Ring_Comp(start, size);

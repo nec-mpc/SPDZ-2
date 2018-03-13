@@ -577,7 +577,7 @@ static const size_t share_port_size = 8;
 static const int share_port_endian = 0;
 static const size_t share_port_nails = 0;
 
-void Processor::GFP_Skew_Bit_Decomp(const vector<int>& reg, int size)
+void Processor::Ext_Skew_Bit_Decomp(const vector<int>& reg, int size)
 {
 	int sz=reg.size();
 
@@ -597,7 +597,7 @@ void Processor::GFP_Skew_Bit_Decomp(const vector<int>& reg, int size)
 
 	if(0 != (*the_ext_lib.ext_skew_bit_decomp)(&spdz_gfp_ext_context, &rings_in, &bits_out))
 	{
-		cerr << "Processor::GFP_Skew_Bit_Decomp extension library ext_skew_bit_decomp() failed." << endl;
+		cerr << "Processor::Ext_Skew_Bit_Decomp extension library ext_skew_bit_decomp() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
