@@ -1677,16 +1677,16 @@ void Instruction::execute(Processor& Proc) const
     	Proc.Ext_Final_Verification();
     	break;
       case E_START_MULT:
-    	Proc.GFP_Mult_Start(start, size);
+    	Proc.Ext_Mult_Start(start, size);
     	break;
       case E_STOP_MULT:
-      	Proc.GFP_Mult_Stop(start, size);
+      	Proc.Ext_Mult_Stop(start, size);
       	break;
       case E_START_OPEN:
-      	Proc.GFP_Open_Start(start, size);
+      	Proc.Ext_Open_Start(start, size);
       	break;
       case E_STOP_OPEN:
-        Proc.GFP_Open_Stop(start, size);
+        Proc.Ext_Open_Stop(start, size);
         break;
       default:
         printf("Case of opcode=%d not implemented yet\n",opcode);

@@ -827,7 +827,7 @@ void Processor::Ext_Final_Verification()
 	cout << "Final verification returned " << error << endl;
 }
 
-void Processor::GFP_Mult_Start(const vector<int>& reg, int size)
+void Processor::Ext_Mult_Start(const vector<int>& reg, int size)
 {
 	int sz=reg.size();
 
@@ -838,7 +838,7 @@ void Processor::GFP_Mult_Start(const vector<int>& reg, int size)
 	prep_shares(reg, Sh_PO, size);
 	if(Sh_PO.size()%2 != 0)
 	{
-		cerr << "Processor::GFP_Mult_Start called with an odd number of operands " << Sh_PO.size() << endl;
+		cerr << "Processor::Ext_Mult_Start called with an odd number of operands " << Sh_PO.size() << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
@@ -862,21 +862,21 @@ void Processor::GFP_Mult_Start(const vector<int>& reg, int size)
 
 	if(0 != (*the_ext_lib.ext_start_mult)(&spdz_gfp_ext_context, &mult_factor1, &mult_factor2, &mult_product))
 	{
-		cerr << "Processor::GFP_Mult_Start extension library start_mult failed." << endl;
+		cerr << "Processor::Ext_Mult_Start extension library start_mult failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
 	else
 	{
-		cout << "Processor::GFP_Mult_Start extension library start_mult launched." << endl;
+		cout << "Processor::Ext_Mult_Start extension library start_mult launched." << endl;
 	}
 }
 
-void Processor::GFP_Mult_Stop(const vector<int>& reg, int size)
+void Processor::Ext_Mult_Stop(const vector<int>& reg, int size)
 {
 	if(0 != (*the_ext_lib.ext_stop_mult)(&spdz_gfp_ext_context))
 	{
-		cerr << "Processor::GFP_Mult_Stop library stop_mult failed." << endl;
+		cerr << "Processor::Ext_Mult_Stop library stop_mult failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
@@ -887,7 +887,7 @@ void Processor::GFP_Mult_Stop(const vector<int>& reg, int size)
 	rounds++;
 }
 
-void Processor::GFP_Open_Start(const vector<int>& reg, int size)
+void Processor::Ext_Open_Start(const vector<int>& reg, int size)
 {
 	int sz=reg.size();
 
@@ -905,21 +905,21 @@ void Processor::GFP_Open_Start(const vector<int>& reg, int size)
 
 	if(0 != (*the_ext_lib.ext_start_open)(&spdz_gfp_ext_context, &open_shares, &open_clears))
 	{
-		cerr << "Processor::GFP_Open_Start library start_open failed." << endl;
+		cerr << "Processor::Ext_Open_Start library start_open failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
 	else
 	{
-		cout << "Processor::GFP_Open_Start extension library start_open launched." << endl;
+		cout << "Processor::Ext_Open_Start extension library start_open launched." << endl;
 	}
 }
 
-void Processor::GFP_Open_Stop(const vector<int>& reg, int size)
+void Processor::Ext_Open_Stop(const vector<int>& reg, int size)
 {
 	if(0 != (*the_ext_lib.ext_stop_open)(&spdz_gfp_ext_context))
 	{
-		cerr << "Processor::GFP_Open_Stop library start_open failed." << endl;
+		cerr << "Processor::Ext_Open_Stop library start_open failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}

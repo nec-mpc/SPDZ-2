@@ -341,10 +341,10 @@ class Processor : public ProcessorBase
   void Ext_Input_Clear_Fix(gfp& input_value, const int input_party_id);
   void Ext_Suggest_Optional_Verification();
   void Ext_Final_Verification();
-  void GFP_Mult_Start(const vector<int>& reg, int size);
-  void GFP_Mult_Stop(const vector<int>& reg, int size);
-  void GFP_Open_Start(const vector<int>& reg, int size);
-  void GFP_Open_Stop(const vector<int>& reg, int size);
+  void Ext_Mult_Start(const vector<int>& reg, int size);
+  void Ext_Mult_Stop(const vector<int>& reg, int size);
+  void Ext_Open_Start(const vector<int>& reg, int size);
+  void Ext_Open_Stop(const vector<int>& reg, int size);
 
   // Print the processor state
   friend ostream& operator<<(ostream& s,const Processor& P);
