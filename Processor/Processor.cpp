@@ -685,38 +685,44 @@ void Processor::Ext_Input_Share_Int(const vector<int>& reg, int size, const int 
 	vector< Share<gfp> >& Sh_PO = get_Sh_PO<gfp>();
 	Sh_PO.clear();
 	Sh_PO.reserve(sz*size);
-
 	import_shares(sec_int_input, Sh_PO);
 	load_shares(reg, Sh_PO, size);
 
 	delete sec_int_input.data;
 }
 
-void Processor::Ext_Input_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id)
+void Processor::Ext_Input_Share_Fix(const vector<int>& reg, int size, const int input_party_id)
 {
-	clear_t clr_int_input;
-	clr_int_input.count = 1;
-	clr_int_input.size = zp_word64_size * 8;
-	clr_int_input.data = new u_int8_t[clr_int_input.size];
-	memset(clr_int_input.data, 0, clr_int_input.size);
+	size_t required_input_count = reg.size();
+	size_t required_input_size = required_input_count * zp_word64_size * 8;
 
-	share_t sec_int_input;
-	sec_int_input.count = 1;
-	sec_int_input.size = zp_word64_size * 8;
-	sec_int_input.data = new u_int8_t[sec_int_input.size];
-	memset(sec_int_input.data, 0, sec_int_input.size);
+	clear_t clr_fix_input;
+	clr_fix_input.count = required_input_count;
+	clr_fix_input.size = zp_word64_size * 8;
+	clr_fix_input.data = new u_int8_t[required_input_size];
+	memset(clr_fix_input.data, 0, required_input_size);
+
+	share_t sec_fix_input;
+	sec_fix_input.count = required_input_count;
+	sec_fix_input.size = zp_word64_size * 8;
+	sec_fix_input.data = new u_int8_t[required_input_size];
+	memset(sec_fix_input.data, 0, required_input_size);
 
 	if(P.my_num() == input_party_id)
 	{
-		std::string str_input;
-		if(0 != read_input_line(input_file_int, str_input))
+		std::vector<const char *> fix_inputs(required_input_count);
+		std::vector<std::string> str_inputs(required_input_count);
+		for(size_t i = 0; i < required_input_count; ++i)
 		{
-			cerr << "Processor::Ext_Input_Share_Fix failed reading fix input value." << endl;
-			dlclose(the_ext_lib.ext_lib_handle);
-			abort();
+			if(0 != read_input_line(input_file_fix, str_inputs[i]))
+			{
+				cerr << "Processor::Ext_Input_Share_Fix failed reading fix input value " << i << endl;
+				dlclose(the_ext_lib.ext_lib_handle);
+				abort();
+			}
+			fix_inputs[i] = str_inputs[i].c_str();
 		}
-		const char * pfix = str_input.c_str();
-		if(0 != (*the_ext_lib.ext_make_input_from_fixed)(&spdz_gfp_ext_context, &pfix, 1, &clr_int_input))
+		if(0 != (*the_ext_lib.ext_make_input_from_fixed)(&spdz_gfp_ext_context, &fix_inputs[0], required_input_count, &clr_fix_input))
 		{
 			cerr << "Processor::Ext_Input_Share_Fix extension library ext_make_input_from_fixed() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
@@ -724,24 +730,23 @@ void Processor::Ext_Input_Share_Fix(Share<gfp>& input_shared_value, const int in
 		}
 	}
 
-	if(0 != (*the_ext_lib.ext_input_party)(&spdz_gfp_ext_context, input_party_id, &clr_int_input, &sec_int_input))
+	if(0 != (*the_ext_lib.ext_input_party)(&spdz_gfp_ext_context, input_party_id, &clr_fix_input, &sec_fix_input))
 	{
 		cerr << "Processor::Ext_Input_Share_Fix extension library ext_input_party() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
 
-	delete clr_int_input.data;
+	delete clr_fix_input.data;
 
-	bigint b;
-	gfp mac, value;
-	mpz_import(b.get_mpz_t(), zp_word64_size, share_port_order, share_port_size, share_port_endian, share_port_nails, sec_int_input.data);
-	to_gfp(value, b);
-	mac.mul(MCp.get_alphai(), value);
-	input_shared_value.set_share(value);
-	input_shared_value.set_mac(mac);
+	vector<gfp>& PO = get_PO<gfp>();
+	vector<gfp>& C = get_C<gfp>();
+	int sz=reg.size();
+	PO.resize(sz*size);
+	import_clears(open_clears, PO);
+	POpen_Stop_prep_opens(reg, PO, C, size);
 
-	delete sec_int_input.data;
+	delete sec_fix_input.data;
 }
 
 void Processor::Ext_Input_Clear_Int(gfp& input_value, const int input_party_id)
@@ -936,7 +941,6 @@ void Processor::Ext_Open_Stop(const vector<int>& reg, int size)
 	int sz=reg.size();
 	PO.resize(sz*size);
 	import_clears(open_clears, PO);
-
 	POpen_Stop_prep_opens(reg, PO, C, size);
 }
 

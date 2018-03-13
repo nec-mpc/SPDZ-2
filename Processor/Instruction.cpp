@@ -1662,7 +1662,7 @@ void Instruction::execute(Processor& Proc) const
     	Proc.Ext_Input_Share_Int(start, size, n);
     	break;
       case E_INPUT_SHARE_FIX:
-      	Proc.Ext_Input_Share_Fix(Proc.get_Sp_ref(r[0]), n);
+      	Proc.Ext_Input_Share_Fix(start, size, n);
     	break;
       case E_INPUT_CLEAR_INT:
         Proc.Ext_Input_Clear_Int(Proc.get_Cp_ref(r[0]), n);
