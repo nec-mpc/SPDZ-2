@@ -338,7 +338,7 @@ class Processor : public ProcessorBase
   void Ext_Input_Share_Int(const vector<int>& reg, int size, const int input_party_id);
   void Ext_Input_Share_Fix(const vector<int>& reg, int size, const int input_party_id);
   void Ext_Input_Clear_Int(const vector<int>& reg, int size, const int input_party_id);
-  void Ext_Input_Clear_Fix(gfp& input_value, const int input_party_id);
+  void Ext_Input_Clear_Fix(const vector<int>& reg, int size, const int input_party_id);
   void Ext_Suggest_Optional_Verification();
   void Ext_Final_Verification();
   void Ext_Mult_Start(const vector<int>& reg, int size);
