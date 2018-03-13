@@ -803,12 +803,12 @@ void Processor::Ext_Input_Clear_Fix(gfp& input_value, const int input_party_id)
 	delete clr_fix_input.data;
 }
 
-void Processor::GFP_Suggest_Optional_Verification()
+void Processor::Ext_Suggest_Optional_Verification()
 {
 	int error = 0;
 	if(0 != (*the_ext_lib.ext_verify_optional_suggest)(&spdz_gfp_ext_context, &error))
 	{
-		cerr << "Processor::GFP_Suggest_Optional_Verification extension library ext_verify_optional_suggest() failed." << endl;
+		cerr << "Processor::Ext_Suggest_Optional_Verification extension library ext_verify_optional_suggest() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}

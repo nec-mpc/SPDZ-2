@@ -1671,7 +1671,7 @@ void Instruction::execute(Processor& Proc) const
         Proc.Ext_Input_Clear_Fix(Proc.get_Cp_ref(r[0]), n);
         break;
       case E_VERIFY_OPTIONAL_SUGGEST:
-    	Proc.GFP_Suggest_Optional_Verification();
+    	Proc.Ext_Suggest_Optional_Verification();
     	break;
       case E_VERIFY_FINAL:
     	Proc.GFP_Final_Verification();
