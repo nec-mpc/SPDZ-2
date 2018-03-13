@@ -337,7 +337,7 @@ class Processor : public ProcessorBase
   void Ext_Skew_Ring_Comp(const vector<int>& reg, int size);
   void Ext_Input_Share_Int(Share<gfp>& input_shared_value, const int input_party_id);
   void Ext_Input_Share_Fix(Share<gfp>& input_shared_value, const int input_party_id);
-  void GFP_Input_Clear_Int(gfp& input_value, const int input_party_id);
+  void Ext_Input_Clear_Int(gfp& input_value, const int input_party_id);
   void GFP_Input_Clear_Fix(gfp& input_value, const int input_party_id);
   void GFP_Suggest_Optional_Verification();
   void GFP_Final_Verification();

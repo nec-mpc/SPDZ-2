@@ -737,7 +737,7 @@ void Processor::Ext_Input_Share_Fix(Share<gfp>& input_shared_value, const int in
 	delete sec_int_input.data;
 }
 
-void Processor::GFP_Input_Clear_Int(gfp& input_value, const int input_party_id)
+void Processor::Ext_Input_Clear_Int(gfp& input_value, const int input_party_id)
 {
 	clear_t clr_int_input;
 	clr_int_input.count = 1;
@@ -750,14 +750,14 @@ void Processor::GFP_Input_Clear_Int(gfp& input_value, const int input_party_id)
 		std::string str_input;
 		if(0 != read_input_line(input_file_int, str_input))
 		{
-			cerr << "Processor::GFP_Input_Clear_Int failed reading integer input value." << endl;
+			cerr << "Processor::Ext_Input_Clear_Int failed reading integer input value." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
 		u_int64_t int_input = strtol(str_input.c_str(), NULL, 10);
 		if(0 != (*the_ext_lib.ext_make_input_from_integer)(&spdz_gfp_ext_context, &int_input, 1, &clr_int_input))
 		{
-			cerr << "Processor::GFP_Input_Clear_Int extension library ext_make_input_from_integer() failed." << endl;
+			cerr << "Processor::Ext_Input_Clear_Int extension library ext_make_input_from_integer() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
