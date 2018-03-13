@@ -331,7 +331,7 @@ class Processor : public ProcessorBase
   void load_shares(const vector<int>& reg, const vector< Share<T> >& shares, int size);
 
   template <class T>
-  void POpen_Stop_prep_opens(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size);
+  void load_clears(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size);
 
   void Ext_Skew_Bit_Decomp(const vector<int>& reg, int size);
   void Ext_Skew_Ring_Comp(const vector<int>& reg, int size);

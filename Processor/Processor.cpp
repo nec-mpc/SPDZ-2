@@ -442,7 +442,7 @@ void Processor::POpen_Stop(const vector<int>& reg,const Player& P,MAC_Check<T>& 
 	PO.resize(sz*size);
 	MC.POpen_End(PO,Sh_PO,P);
 
-	POpen_Stop_prep_opens(reg, PO, C, size);
+	load_clears(reg, PO, C, size);
 
 	sent += reg.size() * size;
 	rounds++;
@@ -495,7 +495,7 @@ void Processor::load_shares(const vector<int>& reg, const vector< Share<T> >& sh
 }
 
 template <class T>
-void Processor::POpen_Stop_prep_opens(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size)
+void Processor::load_clears(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size)
 {
 	if (size>1)
 	{
@@ -787,7 +787,7 @@ void Processor::Ext_Input_Clear_Int(const vector<int>& reg, int size, const int 
 	int sz=reg.size();
 	PO.resize(sz*size);
 	import_clears(clr_int_input, PO);
-	POpen_Stop_prep_opens(reg, PO, C, size);
+	load_clears(reg, PO, C, size);
 
 	delete clr_int_input.data;
 }
@@ -830,7 +830,7 @@ void Processor::Ext_Input_Clear_Fix(const vector<int>& reg, int size, const int 
 	int sz=reg.size();
 	PO.resize(sz*size);
 	import_clears(clr_fix_input, PO);
-	POpen_Stop_prep_opens(reg, PO, C, size);
+	load_clears(reg, PO, C, size);
 
 	delete clr_fix_input.data;
 }
@@ -961,7 +961,7 @@ void Processor::Ext_Open_Stop(const vector<int>& reg, int size)
 	int sz=reg.size();
 	PO.resize(sz*size);
 	import_clears(open_clears, PO);
-	POpen_Stop_prep_opens(reg, PO, C, size);
+	load_clears(reg, PO, C, size);
 }
 
 void Processor::mult_stop_prep_products(const vector<int>& reg, int size)
