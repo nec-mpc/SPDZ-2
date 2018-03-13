@@ -1659,7 +1659,7 @@ void Instruction::execute(Processor& Proc) const
     	Proc.Ext_Skew_Ring_Comp(start, size);
     	break;
       case E_INPUT_SHARE_INT:
-    	Proc.GFP_Input_Share_Int(Proc.get_Sp_ref(r[0]), n);
+    	Proc.Ext_Input_Share_Int(Proc.get_Sp_ref(r[0]), n);
     	break;
       case E_INPUT_SHARE_FIX:
       	Proc.GFP_Input_Share_Fix(Proc.get_Sp_ref(r[0]), n);

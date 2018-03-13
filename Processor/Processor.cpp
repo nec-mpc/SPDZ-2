@@ -633,7 +633,7 @@ void Processor::Ext_Skew_Ring_Comp(const vector<int>& reg, int size)
 	load_shares(reg, Sh_PO, size);
 }
 
-void Processor::GFP_Input_Share_Int(Share<gfp>& input_shared_value, const int input_party_id)
+void Processor::Ext_Input_Share_Int(Share<gfp>& input_shared_value, const int input_party_id)
 {
 	clear_t clr_int_input;
 	clr_int_input.count = 1;
@@ -652,14 +652,14 @@ void Processor::GFP_Input_Share_Int(Share<gfp>& input_shared_value, const int in
 		std::string str_input;
 		if(0 != read_input_line(input_file_int, str_input))
 		{
-			cerr << "Processor::GFP_Input_Share_Int failed reading integer input value." << endl;
+			cerr << "Processor::Ext_Input_Share_Int failed reading integer input value." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
 		u_int64_t int_input = strtol(str_input.c_str(), NULL, 10);
 		if(0 != (*the_ext_lib.ext_make_input_from_integer)(&spdz_gfp_ext_context, &int_input, 1, &clr_int_input))
 		{
-			cerr << "Processor::GFP_Input_Share_Int extension library ext_make_input_from_integer() failed." << endl;
+			cerr << "Processor::Ext_Input_Share_Int extension library ext_make_input_from_integer() failed." << endl;
 			dlclose(the_ext_lib.ext_lib_handle);
 			abort();
 		}
@@ -667,7 +667,7 @@ void Processor::GFP_Input_Share_Int(Share<gfp>& input_shared_value, const int in
 
 	if(0 != (*the_ext_lib.ext_input_party)(&spdz_gfp_ext_context, input_party_id, &clr_int_input, &sec_int_input))
 	{
-		cerr << "Processor::GFP_Input_Share_Int extension library ext_input_party() failed." << endl;
+		cerr << "Processor::Ext_Input_Share_Int extension library ext_input_party() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}
