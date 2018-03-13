@@ -815,12 +815,12 @@ void Processor::Ext_Suggest_Optional_Verification()
 	cout << "Optional verification suggestion returned " << error << endl;
 }
 
-void Processor::GFP_Final_Verification()
+void Processor::Ext_Final_Verification()
 {
 	int error = 0;
 	if(0 != (*the_ext_lib.ext_verify_final)(&spdz_gfp_ext_context, &error))
 	{
-		cerr << "Processor::GFP_Final_Verification extension library ext_verify_final() failed." << endl;
+		cerr << "Processor::Ext_Final_Verification extension library ext_verify_final() failed." << endl;
 		dlclose(the_ext_lib.ext_lib_handle);
 		abort();
 	}

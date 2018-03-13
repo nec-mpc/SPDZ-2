@@ -1674,7 +1674,7 @@ void Instruction::execute(Processor& Proc) const
     	Proc.Ext_Suggest_Optional_Verification();
     	break;
       case E_VERIFY_FINAL:
-    	Proc.GFP_Final_Verification();
+    	Proc.Ext_Final_Verification();
     	break;
       case E_START_MULT:
     	Proc.GFP_Mult_Start(start, size);
