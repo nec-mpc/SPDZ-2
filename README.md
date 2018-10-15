@@ -153,8 +153,8 @@ See https://github.com/nec-mpc/SPDZ-2-Extension-Ring for our implemented extensi
    * [Proxy]
      `./Server.x 3 60000`
    * [MPC server0]
-     `.Player-Online.x -pn 60000 -lgp 64 0 variance_modified_10input`
+     `./Player-Online.x -pn 60000 -lgp 64 0 variance_modified_10input`
    * [MPC server1]
-      ` .Player-Online.x -pn 60000 -lgp 64 1 variance_modified_10input`
+      `./Player-Online.x -pn 60000 -lgp 64 1 variance_modified_10input`
    * [MPC server2]
-      `.Player-Online.x -pn 60000 -lgp 64 2 variance_modified_10input`
+      `./Player-Online.x -pn 60000 -lgp 64 2 variance_modified_10input`
