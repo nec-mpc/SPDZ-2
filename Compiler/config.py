@@ -1,4 +1,4 @@
-# (C) 2018 University of Bristol. See License.txt
+# (C) 2016 University of Bristol. See License.txt
 
 from collections import defaultdict
 

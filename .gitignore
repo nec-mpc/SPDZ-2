@@ -29,6 +29,10 @@ tags
 .project
 .cproject
 .settings
+Debug
+Debug/*
+Release
+Release/*
 
 # VS Code IDE #
 ###############
@@ -44,9 +48,9 @@ callgrind.out.*
 
 # Compiled source #
 ###################
-Programs/Bytecode/*
-Programs/Schedules/*
-Programs/Public-Input/*
+#Programs/Bytecode/*
+#Programs/Schedules/*
+#Programs/Public-Input/*
 *.com
 *.class
 *.dll
@@ -55,8 +59,8 @@ Programs/Public-Input/*
 *.o
 *.so
 *.pyc
-*.bc
-*.sch
+#*.bc
+#*.sch
 *.a
 *.static
 *.d

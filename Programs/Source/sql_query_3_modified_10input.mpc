@@ -1,0 +1,158 @@
+#Based on "Algorithm 173 SQL Query"
+
+#-----------------------------------------------------------------------------#
+L = (20, 20, 20, 20, 20, 83, 20, 2, 10, 50)
+a1 = 5              # 5 <= a1 <= 14
+a2 = 7              # 5 <= a2 <= 14
+a3 = 10             # 10 <= a3 <= 14
+v = 0               # 0 <= v <= 4
+alpha = 3           # 0 <= alpha
+beta = 1            # 0 <= beta <= L[a3-5]
+N0 = 10
+N1 = 0
+N2 = 0
+
+#S = Matrix(L[a1-5], L[a2-5], sint)
+#C = Matrix(L[a1-5], L[a2-5], sint)
+#R = Matrix(L[a1-5], L[a2-5], sfix)
+#H = Matrix(L[a1-5], L[a2-5], sint)
+S = [[sint(0) for i in range(L[a1-5])] for j in range(L[a2-5])]
+C = [[sint(0) for i in range(L[a1-5])] for j in range(L[a2-5])]
+R = [[sfix(0) for i in range(L[a1-5])] for j in range(L[a2-5])]
+H = [[sint(0) for i in range(L[a1-5])] for j in range(L[a2-5])]
+
+#-----------------------------------------------------------------------------#
+def read_row(pid):
+    sInteger_0 = sint.get_input_from(pid)
+    sInteger_1 = sint.get_input_from(pid)
+    sInteger_2 = sint.get_input_from(pid)
+    sInteger_3 = sint.get_input_from(pid)
+    sInteger_4 = sint.get_input_from(pid)
+    #debug print
+    #print_ln("sInteger_0 = %s", sInteger_0.reveal())
+    #print_ln("sInteger_1 = %s", sInteger_1.reveal())
+    #print_ln("sInteger_2 = %s", sInteger_2.reveal())
+    #print_ln("sInteger_3 = %s", sInteger_3.reveal())
+    #print_ln("sInteger_4 = %s", sInteger_4.reveal())
+    
+    #s20BitArray_5 = Array(L[0], sint)
+    s20BitArray_5 = [sint(0) for i in range(L[0])]
+    for i in range(L[0]):
+        s20BitArray_5[i] = sint.get_input_from(pid)
+        #print_ln("s20BitArray_5[%s] = %s", i, s20BitArray_5[i].reveal())
+    
+    #s20BitArray_6 = Array(L[1], sint)
+    s20BitArray_6 = [sint(0) for i in range(L[1])]
+    for i in range(L[1]):
+        s20BitArray_6[i] = sint.get_input_from(pid)
+        #print_ln("s20BitArray_6[%s] = %s", i, s20BitArray_6[i].reveal())
+    
+    #s20BitArray_7 = Array(L[2], sint)
+    s20BitArray_7 = [sint(0) for i in range(L[2])]
+    for i in range(L[2]):
+        s20BitArray_7[i] = sint.get_input_from(pid)
+        #print_ln("s20BitArray_7[%s] = %s", i, s20BitArray_7[i].reveal())
+    
+    #s20BitArray_8 = Array(L[3], sint)
+    s20BitArray_8 = [sint(0) for i in range(L[3])]
+    for i in range(L[3]):
+        s20BitArray_8[i] = sint.get_input_from(pid)
+        #print_ln("s20BitArray_8[%s] = %s", i, s20BitArray_8[i].reveal())
+    
+    #s20BitArray_9 = Array(L[4], sint)
+    s20BitArray_9 = [sint(0) for i in range(L[4])]
+    for i in range(L[4]):
+        s20BitArray_9[i] = sint.get_input_from(pid)
+        #print_ln("s20BitArray_9[%s] = %s", i, s20BitArray_9[i].reveal())
+    
+    #s83BitArray_10 = Array(L[5], sint)
+    s83BitArray_10 = [sint(0) for i in range(L[5])]
+    for i in range(L[5]):
+        s83BitArray_10[i] = sint.get_input_from(pid)
+    
+    #s20BitArray_11 = Array(L[6], sint)
+    s20BitArray_11 = [sint(0) for i in range(L[6])]
+    for i in range(L[6]):
+        s20BitArray_11[i] = sint.get_input_from(pid)
+    
+    #s2BitArray_12 = Array(L[7], sint)
+    s2BitArray_12 = [sint(0) for i in range(L[7])]
+    for i in range(L[7]):
+        s2BitArray_12[i] = sint.get_input_from(pid)
+    
+    #s10BitArray_13 = Array(L[8], sint)
+    s10BitArray_13 = [sint(0) for i in range(L[8])]
+    for i in range(L[8]):
+        s10BitArray_13[i] = sint.get_input_from(pid)
+    
+    #s50BitArray_14 = Array(L[9], sint)
+    s50BitArray_14 = [sint(0) for i in range(L[9])]
+    for i in range(L[9]):
+        s50BitArray_14[i] = sint.get_input_from(pid)
+
+    return (sInteger_0, sInteger_1, sInteger_2, sInteger_3, sInteger_4, s20BitArray_5, s20BitArray_6, s20BitArray_7, s20BitArray_8,
+            s20BitArray_9, s83BitArray_10, s20BitArray_11, s2BitArray_12, s10BitArray_13, s50BitArray_14)
+
+#-----------------------------------------------------------------------------#
+def print_tup(t):
+    print_ln('showing 5 integers')
+    for i in range(5):
+        print_ln('int %s = %s', i, t[i].reveal())
+
+    for i in range(5, 15):
+        print_ln('showing bit array %s', i)
+        for j in range(L[i-5]):
+            print_ln('bit %s = %s', j, t[i][j].reveal())
+
+#-----------------------------------------------------------------------------#
+def calc_tup(Ti):
+    global S
+    global C
+    for j in range(L[a1-5]):
+        for k in range(L[a2-5]):
+            A = Ti[a3][beta]*Ti[a1][j]*Ti[a2][k]
+            S[j][k] = S[j][k] + Ti[v]*A
+            C[j][k] = C[j][k] + A
+
+#-----------------------------------------------------------------------------#
+
+#@for_range(N0)
+#def perform_row(i):
+for i in range(N0):
+    Ti = read_row(0)
+    #if (i == 0):
+    #    print_tup(Ti)
+    calc_tup(Ti)
+    #print_ln('S[1][1] = %s', S[1][1].reveal())
+    #print_ln('C[1][1] = %s', C[1][1].reveal())
+
+#@for_range(N1)
+#def perform_row(i):
+for i in range(N1):
+    Ti = read_row(1)
+    #print_tup(Ti)
+    calc_tup(Ti)
+
+#@for_range(N2)
+#def perform_row(i):
+for i in range(N2):
+    Ti = read_row(2)
+    #print_tup(Ti)
+    calc_tup(Ti)
+
+#@for_range(L[a1-5])
+#def _(j):
+for j in range(L[a1-5]):
+    for k in range(L[a2-5]):
+        sfSjk = sfix(0)
+        sfSjk.load_int(S[j][k])
+        sfCjk = sfix(0)
+        sfCjk.load_int(C[j][k])
+        H[j][k] = (C[j][k] >= alpha)
+        R[j][k] = H[j][k]*(sfSjk/sfCjk)
+        #print_ln("sfSjk = %s", sfSjk.reveal())
+        #print_ln("sfCjk = %s", sfCjk.reveal())
+        print_ln('R[%s][%s] = %s; H[%s][%s] = %s;', j, k, R[j][k].reveal(), j, k, H[j][k].reveal())
+
+#-----------------------------------------------------------------------------#
+print_ln('Algorithm 173 SQL Query test done')

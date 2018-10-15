@@ -49,9 +49,10 @@ void Program::print_offline_cost() const
       cerr << "Tape has unknown usage" << endl;
       return;
     }
-
-  cerr << "Cost of first tape:" << endl;
-  offline_data_used.print_cost();
+  // statstics comment out (start)
+//  cerr << "Cost of first tape:" << endl;
+//  offline_data_used.print_cost();
+  // statstics comment out (end)
 }
 
 

@@ -1,0 +1,30 @@
+def mean(value, num):
+    sum = sint(0)
+
+    for i in range(num):
+        sum = sum + input_values[i]
+
+    Sf = sfix(0)
+    Sf.load_int(sum)
+    Nf = sfix(0)
+    Nf.load_int(num)
+    
+    mean = Sf / Nf
+
+    # print_ln('Sf = %s: ', Sf.reveal())
+    # print_ln('number of inputs = %s', Nf.reveal())
+
+    return mean
+
+num_input = 10
+
+input_values = [sint() for i in range(num_input)]
+
+for i in range(num_input):
+    input_values[i] = sint.get_input_from(2)
+
+print_ln('')
+
+result = mean(input_values, num_input)
+
+print_ln('mean = %s\n', result.reveal())

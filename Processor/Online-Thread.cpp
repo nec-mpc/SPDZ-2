@@ -96,7 +96,9 @@ void* Sub_Main_Func(void* ptr)
 
       if (program==-1)
         { flag=false;
-          fprintf(stderr, "\tThread %d terminating\n",num);
+        //statistics comment out (start)
+//          fprintf(stderr, "\tThread %d terminating\n",num);
+          //statistics comment out (end)
         }
       else
         { // RUN PROGRAM
@@ -153,12 +155,14 @@ void* Sub_Main_Func(void* ptr)
   pthread_mutex_unlock(&t_mutex[num]);
   wait_timer.stop();
 
-  cerr << num << " : MAC Checking" << endl;
-  cerr << "\tMC2.number=" << MC2->number() << endl;
-  cerr << "\tMCp.number=" << MCp->number() << endl;
-
-  cerr << "Thread " << num << " timer: " << thread_timer.elapsed() << endl;
-  cerr << "Thread " << num << " wait timer: " << wait_timer.elapsed() << endl;
+  // statistics comment out (start)
+//  cerr << num << " : MAC Checking" << endl;
+//  cerr << "\tMC2.number=" << MC2->number() << endl;
+//  cerr << "\tMCp.number=" << MCp->number() << endl;
+//
+//  cerr << "Thread " << num << " timer: " << thread_timer.elapsed() << endl;
+//  cerr << "Thread " << num << " wait timer: " << wait_timer.elapsed() << endl;
+  // statistics comment out (end)
 
   delete MC2;
   delete MCp;

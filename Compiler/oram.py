@@ -1,4 +1,4 @@
-# (C) 2018 University of Bristol. See License.txt
+# (C) 2016 University of Bristol. See License.txt
 
 import random
 import math
@@ -14,6 +14,8 @@ from Compiler.program import Program
 from Compiler import floatingpoint,comparison,permutation
 
 from Compiler.util import *
+
+sys.setrecursionlimit(1000000)
 
 print_access = False
 sint_bit_length = 6
@@ -38,6 +40,12 @@ def maybe_stop_timer(n):
     if detailed_timing:
         stop_timer(n)
 
+def reveal(a):
+    try:
+        return a.reveal()
+    except AttributeError:
+        return a
+
 class Block(object):
     def __init__(self, value, lengths):
         self.value = self.value_type.hard_conv(value)
@@ -45,7 +53,8 @@ class Block(object):
     def get_slice(self):
         res = []
         for length,start in  zip(self.lengths, series(self.lengths)):
-            res.append(util.bit_compose((self.bits[start:start+length])))
+            res.append(sum(b << i for i,b in \
+                        enumerate(self.bits[start:start+length])))
         return res
     def __repr__(self):
         return '<' + str(self.value) + '>'
@@ -141,17 +150,11 @@ class gf2nBlock(Block):
         self.value = self.lower + value * self.adjust + upper
         return self
 
-block_types = { sint: intBlock,
-                sgf2n: gf2nBlock,
-}
-
 def get_block(x, y, *args):
-    for t in block_types:
-        if isinstance(x, t):
-            return block_types[t](x, y, *args)
-        elif isinstance(y, t):
-            return block_types[t](x, y, *args)
-    raise CompilerError('appropiate block type not found')
+    if isinstance(x, sgf2n) or isinstance(y, sgf2n):
+        return gf2nBlock(x, y, *args)
+    else:
+        return intBlock(x, y, *args)
 
 def get_bit(x, index, bit_length):
     if isinstance(x, sgf2n):
@@ -239,14 +242,14 @@ class Value(object):
             return (1 - self.empty) * (other == self.value)
         return (1 - self.empty) * self.value.equal(other, length)
     def reveal(self):
-        return Value(reveal(self.value), reveal(self.empty))
+        return Value(self.value.reveal(), self.empty.reveal())
     def output(self):
-        # @if_e(self.empty)
-        # def f():
-        #     print_str('<>')
-        # @else_
-        # def f():
-        print_str('<%s:%s>', self.empty, self.value)
+        @if_e(self.empty)
+        def f():
+            print_str('<>')
+        @else_
+        def f():
+            print_str('<%s>', self.value)
     def __index__(self):
         return int(self.value)
     def __repr__(self):
@@ -341,13 +344,12 @@ class Entry(object):
     def reveal(self):
         return Entry(x.reveal() for x in self)
     def output(self):
-        # @if_e(self.is_empty)
-        # def f():
-        #     print_str('{empty=%s}', self.is_empty)
-        # @else_
-        # def f():
-        #     print_str('{%s: %s}', self.v, self.x)\
-        print_str('{%s: %s,empty=%s}', self.v, self.x, self.is_empty)
+        @if_e(self.is_empty)
+        def f():
+            print_str('{empty=%s}', self.is_empty)
+        @else_
+        def f():
+            print_str('{%s: %s}', self.v, self.x)
 
 class RefRAM(object):
     """ RAM reference. """
@@ -360,8 +362,8 @@ class RefRAM(object):
                 crash()
         self.size = oram.bucket_size
         self.entry_type = oram.entry_type
-        self.l = [t.dynamic_array(self.size, t, array.address + \
-                               index * oram.bucket_size) \
+        self.l = [Array(self.size, t, array.address + \
+                            index * oram.bucket_size) \
                       for t,array in zip(self.entry_type,oram.ram.l)]
         self.index = index
     def init_mem(self, empty_entry):
@@ -408,7 +410,7 @@ class RefRAM(object):
         Program.prog.curr_tape.start_new_basicblock()
         return res
     def output(self):
-        print_ln('%s', [x.reveal() for x in self])
+        self.reveal().print_reg()
     def print_reg(self):
         print_ln('listing of RAM at index %s', self.index)
         Program.prog.curr_tape.start_new_basicblock()
@@ -426,7 +428,7 @@ class RAM(RefRAM):
         #print_reg(cint(0), 'r in')
         self.size = size
         self.entry_type = entry_type
-        self.l = [t.dynamic_array(self.size, t) for t in entry_type]
+        self.l = [Array(self.size, t) for t in entry_type]
         self.index = index
 
 class AbstractORAM(object):
@@ -900,7 +902,7 @@ class List(object):
     def __init__(self, size, value_type, value_length=1, init_rounds=None):
         self.value_type = value_type
         self.value_length = value_length
-        self.l = [value_type.dynamic_array(size, value_type) \
+        self.l = [Array(size, value_type) \
                       for i in range(value_length)]
         for l in self.l:
             l.assign_all(0)
@@ -1320,10 +1322,8 @@ def get_value_size(value_type):
     """ Return element size. """
     if value_type == sgf2n:
         return Program.prog.galois_length
-    elif value_type == sint:
-        return 127 - Program.prog.security
     else:
-        return value_type.max_length
+        return 127 - Program.prog.security
 
 def get_parallel(index_size, value_type, value_length):
     """ Returning the number of parallel readings feasible, based on
@@ -1410,7 +1410,7 @@ class PackedIndexStructure(object):
                 else:
                     self.l[i] = [0] * self.elements_per_block
                 time()
-                print_ln('packed ORAM init %s/%s', i, real_init_rounds)
+                print_ln('packed ORAM init %s/%s', cint(i), real_init_rounds)
         print 'index initialized, size', size
     def translate_index(self, index):
         """ Bit slicing *index* according parameters. Output is tuple
@@ -1425,17 +1425,18 @@ class PackedIndexStructure(object):
                 return 0, b, c
             else:
                 return (index - rem) / self.entries_per_block, b, c
-        else:
+        elif self.value_type == sgf2n:
             index_bits = bit_decompose(index, log2(self.size))
             l1 = self.log_entries_per_element
             l2 = self.log_entries_per_block
-            c = bit_compose(index_bits[:l1])
-            b = bit_compose(index_bits[l1:l2])
+            c = sum(bit << i for i,bit in enumerate(index_bits[:l1]))
+            b = sum(bit << i for i,bit in enumerate(index_bits[l1:l2]))
             if self.small:
                 return 0, b, c
             else:
-                a = bit_compose(index_bits[l2:])
+                a = sum(bit << i for i,bit in enumerate(index_bits[l2:]))
                 return a, b, c
+        else:
             raise CompilerError('Cannot process indices of type', self.value_type)
     class Slicer(object):
         def __init__(self, pack, index):
@@ -1623,11 +1624,11 @@ class OptimalPackedORAMWithEmpty(PackedORAMWithEmpty):
 def test_oram(oram_type, N, value_type=sint, iterations=100):
     oram = oram_type(N, value_type=value_type, entry_size=32, init_rounds=0)
     print 'initialized'
-    print_ln('initialized')
+    print_reg(cint(0), 'init')
     stop_timer()
     # synchronize
     Program.prog.curr_tape.start_new_basicblock(name='sync')
-    value_type(0).reveal()
+    sint(0).reveal()
     Program.prog.curr_tape.start_new_basicblock(name='sync')
     start_timer()
     #oram[value_type(0)] = -1

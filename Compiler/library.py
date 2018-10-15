@@ -1,4 +1,4 @@
-# (C) 2018 University of Bristol. See License.txt
+# (C) 2016 University of Bristol. See License.txt
 
 from Compiler.types import cint,sint,cfix,sfix,sfloat,MPCThread,Array,MemValue,cgf2n,sgf2n,_number,_mem,_register,regint,Matrix,_types, cfloat
 from Compiler.instructions import *
@@ -72,37 +72,48 @@ def print_str(s, *args):
             else:
                 val = args[i]
             if isinstance(val, program.Tape.Register):
-                if val.is_clear:
+
+                if val.reg_type == 'ci':
+                    cint(val).print_reg_plain()
+                elif val.is_clear:
                     val.print_reg_plain()
                 else:
                     raise CompilerError('Cannot print secret value:', args[i])
             elif isinstance(val, cfix):
+                # added (start)
+                # val.v.print_reg_plain()
+                val.v.e_print_fixed_plain()
+                # added (end)
+
+                # Original (start)
                 # print decimal representation of a clear fixed point number
                 # number is encoded as [left].[right]
-                left = val.v
-                sign = -1 * (val.v < 0) + 1 * (val.v >= 0)
-                positive_left = cint(sign) * left
-                right = positive_left % 2**val.f
-                @if_(sign == -1)
-                def block():
-                    print_str('-')
-                cint((positive_left - right + 1) >> val.f).print_reg_plain()
-                x = 0
-                max_dec_base = 8 # max 32-bit precision
-                last_nonzero = 0
-                for i,b in enumerate(reversed(right.bit_decompose(val.f))):
-                    x += b * int(10**max_dec_base / 2**(i + 1))
-                v = x
-                for i in range(max_dec_base):
-                    t = v % 10
-                    b = (t > 0)
-                    last_nonzero = (1 - b) * last_nonzero + b * i
-                    v = (v - t) / 10
-                print_plain_str('.')
-                @for_range(max_dec_base - 1 - last_nonzero)
-                def f(i):
-                    print_str('0')
-                x.print_reg_plain()
+                # left = val.v
+                # sign = -1 * (val.v < 0) + 1 * (val.v >= 0)
+                # positive_left = cint(sign) * left
+                # right = positive_left % 2**val.f
+                # @if_(sign == -1)
+                # def block():
+                #     print_str('-')
+                # cint((positive_left - right + 1) >> val.f).print_reg_plain()
+                # x = 0
+                # max_dec_base = 6 # max 32-bit precision
+                # last_nonzero = 0
+                # for i,b in enumerate(reversed(right.bit_decompose(val.f))):
+                #     x += b * int(10**max_dec_base / 2**(i + 1))
+                # v = x
+                # for i in range(max_dec_base):
+                #     t = v % 10
+                #     b = (t > 0)
+                #     last_nonzero = (1 - b) * last_nonzero + b * i
+                #     v = (v - t) / 10
+                # print_plain_str('.')
+                # @for_range(max_dec_base - 1 - last_nonzero)
+                # def f(i):
+                #     print_str('0')
+                # x.print_reg_plain()
+                # Original (end)
+
             elif isinstance(val, sfix) or isinstance(val, sfloat):
                 raise CompilerError('Cannot print secret value:', args[i])
             elif isinstance(val, cfloat):
@@ -353,7 +364,7 @@ class FunctionBlock(Function):
         parent_node = get_tape().req_node
         get_tape().open_scope(lambda x: x[0], None, 'begin-' + self.name)
         block = get_tape().active_basicblock
-        block.alloc_pool = defaultdict(set)
+        block.persistent_allocation = True
         del parent_node.children[-1]
         self.node = get_tape().req_node
         print 'Compiling function', self.name
@@ -830,7 +841,7 @@ def map_reduce_single(n_parallel, n_loops, initializer, reducer, mem_state=None)
     n_parallel = n_parallel or 1
     if mem_state is None:
         # default to list of MemValues to allow varying types
-        mem_state = [type(x).MemValue(x) for x in initializer()]
+        mem_state = [MemValue(x) for x in initializer()]
         use_array = False
     else:
         # use Arrays for multithread version
@@ -1146,7 +1157,7 @@ def stop_timer(timer_id=0):
 # Fixed point ops
 
 from math import ceil, log
-from floatingpoint import PreOR, TruncPr, two_power, shift_two
+from floatingpoint import PreOR, TruncPr, two_power
 
 def approximate_reciprocal(divisor, k, f, theta):
     """
@@ -1189,15 +1200,17 @@ def approximate_reciprocal(divisor, k, f, theta):
     q = MemValue(two_power(k))
     e = MemValue(twos_complement(normalized_divisor.read()))
 
-    qr = q.read()
-    er = e.read()
+    @for_range(theta)
+    def block(i):
+        qread = q.read()
+        eread = e.read()
+        qread += (qread * eread) >> k
+        eread = (eread * eread) >> k
 
-    for i in range(theta):
-        qr = qr + shift_two(qr * er, k)
-        er = shift_two(er * er, k)
+        q.write(qread)
+        e.write(eread)
 
-    q = qr
-    res = shift_two(q, (2*k - 2*f - cnt_leading_zeros))
+    res = q >> (2*k - 2*f - cnt_leading_zeros)
 
     return res
 
@@ -1219,6 +1232,7 @@ def cint_cint_division(a, b, k, f):
     absolute_b = b * sign_b
     absolute_a = a * sign_a
     w0 = approximate_reciprocal(absolute_b, k, f, theta)
+
     A = Array(theta, cint)
     B = Array(theta, cint)
     W = Array(theta, cint)
@@ -1226,11 +1240,11 @@ def cint_cint_division(a, b, k, f):
     A[0] = absolute_a
     B[0] = absolute_b
     W[0] = w0
-    for i in range(1, theta):
-        A[i] = shift_two(A[i - 1] * W[i - 1], f)
-        B[i] = shift_two(B[i - 1] * W[i - 1], f)
+    @for_range(1, theta)
+    def block(i):
+        A[i] = (A[i - 1] * W[i - 1]) >> f
+        B[i] = (B[i - 1] * W[i - 1]) >> f
         W[i] = two - B[i]
-
     return (sign_a * sign_b) * A[theta - 1]
 
 from Compiler.program import Program
@@ -1254,11 +1268,10 @@ def sint_cint_division(a, b, k, f, kappa):
     B[0] = absolute_b
     W[0] = w0
 
-
     @for_range(1, theta)
     def block(i):
         A[i] = TruncPr(A[i - 1] * W[i - 1], 2*k, f, kappa)
-        temp = shift_two(B[i - 1] * W[i - 1], f)
+        temp = (B[i - 1] * W[i - 1]) >> f
         # no reading and writing to the same variable in a for loop.
         W[i] = two - temp
         B[i] = temp

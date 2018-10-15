@@ -1,4 +1,4 @@
-# (C) 2018 University of Bristol. See License.txt
+# (C) 2016 University of Bristol. See License.txt
 
 from Compiler.config import *
 from Compiler.exceptions import *
@@ -65,7 +65,6 @@ class Program(object):
         self.n_threads = 1
         self.free_threads = set()
         self.public_input_file = open(self.programs_dir + '/Public-Input/%s' % self.name, 'w')
-        self.types = {}
         Program.prog = self
         
         self.reset_values()
@@ -231,7 +230,7 @@ class Program(object):
         # runtime doesn't support 'new-style' parallelism yet
         old_style = True
 
-        nonempty_tapes = [t for t in self.tapes]
+        nonempty_tapes = [t for t in self.tapes if not t.is_empty()]
 
         sch_filename = self.programs_dir + '/Schedules/%s.sch' % self.name
         sch_file = open(sch_filename, 'w')
@@ -328,17 +327,12 @@ class Program(object):
         """ The basic block that is currently being created. """
         return self.curr_tape.active_basicblock
     
-    def malloc(self, size, mem_type, reg_type=None):
+    def malloc(self, size, mem_type):
         """ Allocate memory from the top """
-        if not isinstance(size, (int, long)):
-            raise CompilerError('size must be known at compile time')
         if size == 0:
             return
         if isinstance(mem_type, type):
-            self.types[mem_type.reg_type] = mem_type
             mem_type = mem_type.reg_type
-        elif reg_type is not None:
-            self.types[mem_type] = reg_type
         key = size, mem_type
         if self.free_mem_blocks[key]:
             addr = self.free_mem_blocks[key].pop()
@@ -352,8 +346,7 @@ class Program(object):
 
     def free(self, addr, mem_type):
         """ Free memory """
-        if self.curr_block.alloc_pool \
-           is not self.curr_tape.basicblocks[0].alloc_pool:
+        if self.curr_block.persistent_allocation:
             raise CompilerError('Cannot free memory within function block')
         size = self.allocated_mem_blocks.pop((addr,mem_type))
         self.free_mem_blocks[size,mem_type].add(addr)
@@ -361,15 +354,10 @@ class Program(object):
     def finalize_memory(self):
         import library
         self.curr_tape.start_new_basicblock(None, 'memory-usage')
-        # reset register counter to 0
-        self.curr_tape.init_registers()
         for mem_type,size in self.allocated_mem.items():
             if size:
                 #print "Memory of type '%s' of size %d" % (mem_type, size)
-                if mem_type in self.types:
-                    self.types[mem_type].load_mem(size - 1, mem_type)
-                else:
-                    library.load_mem(size - 1, mem_type)
+                library.load_mem(size - 1, mem_type)
 
     def public_input(self, x):
         self.public_input_file.write('%s\n' % str(x))
@@ -419,9 +407,9 @@ class Tape:
             self.children = []
             if scope is not None:
                 scope.children.append(self)
-                self.alloc_pool = scope.alloc_pool
+                self.persistent_allocation = scope.persistent_allocation
             else:
-                self.alloc_pool = defaultdict(set)
+                self.persistent_allocation = False
 
         def new_reg(self, reg_type, size=None):
             return self.parent.new_reg(reg_type, size=size)
@@ -523,12 +511,19 @@ class Tape:
         print 'Processing tape', self.name, 'with %d blocks' % len(self.basicblocks)
 
         for block in self.basicblocks:
-            al.determine_scope(block, options)
+            al.determine_scope(block)
 
         # merge open instructions
         # need to do this if there are several blocks
         if (options.merge_opens and self.merge_opens) or options.dead_code_elimination:
             for i,block in enumerate(self.basicblocks):
+
+                ### added for debug (start) ###
+                # print("i={0}".format(i))
+                # print("block:{0}".format(block))
+                # print("block.instructions:{0}".format(block.instructions))
+                ### added for debug (ended) ###
+
                 if len(block.instructions) > 0:
                     print 'Processing basic block %s, %d/%d, %d instructions' % \
                         (block.name, i, len(self.basicblocks), \
@@ -546,7 +541,8 @@ class Tape:
                         continue
                     if len(block.instructions) > 10000:
                         print 'Merging open instructions...'
-                    numrounds = merger.longest_paths_merge()
+                    #numrounds = merger.longest_paths_merge()
+                    numrounds = merger.extended_longest_paths_merge_4inst()
                     if numrounds > 0:
                         print 'Program requires %d rounds of communication' % numrounds
                     numinv = sum(len(i.args) for i in block.instructions if isinstance(i, Compiler.instructions.startopen_class))
@@ -575,15 +571,15 @@ class Tape:
 
         # allocate registers
         reg_counts = self.count_regs()
-        if not options.noreallocate:
-            print 'Tape register usage:', reg_counts
+        if filter(lambda n: n > REG_MAX, reg_counts) and not options.noreallocate:
+            print 'Tape register usage:'
             print 'modp: %d clear, %d secret' % (reg_counts[RegType.ClearModp], reg_counts[RegType.SecretModp])
             print 'GF2N: %d clear, %d secret' % (reg_counts[RegType.ClearGF2N], reg_counts[RegType.SecretGF2N])
             print 'Re-allocating...'
             allocator = al.StraightlineAllocator(REG_MAX)
             def alloc_loop(block):
                 for reg in block.used_from_scope:
-                    allocator.alloc_reg(reg, block.alloc_pool)
+                    allocator.alloc_reg(reg, block.persistent_allocation)
                 for child in block.children:
                     if child.instructions:
                         alloc_loop(child)
@@ -596,7 +592,7 @@ class Tape:
                     if isinstance(jump, (int,long)) and jump < 0 and \
                             block.exit_block.scope is not None:
                         alloc_loop(block.exit_block.scope)
-                allocator.process(block.instructions, block.alloc_pool)
+                allocator.process(block.instructions, block.persistent_allocation)
 
         # offline data requirements
         print 'Compile offline data requirements...'
@@ -626,11 +622,10 @@ class Tape:
 
         if not self.is_empty():
             # bit length requirement
-            for x in ('p', '2'):
-                if self.req_bit_length['p']:
-                    self.basicblocks[-1].instructions.append(
-                        Compiler.instructions.reqbl(self.req_bit_length['p'],
-                                                    add_to_prog=False))
+            self.basicblocks[-1].instructions.append(
+                Compiler.instructions.reqbl(self.req_bit_length['p'], add_to_prog=False))
+            self.basicblocks[-1].instructions.append(
+                Compiler.instructions.greqbl(self.req_bit_length['2'], add_to_prog=False))
             print 'Tape requires prime bit length', self.req_bit_length['p']
             print 'Tape requires galois bit length', self.req_bit_length['2']
 

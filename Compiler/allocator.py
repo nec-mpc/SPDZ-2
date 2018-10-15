@@ -1,4 +1,5 @@
-# (C) 2018 University of Bristol. See License.txt
+# Confidential:
+# (C) 2016 University of Bristol. See License.txt
 
 import itertools, time
 from collections import defaultdict, deque
@@ -11,20 +12,20 @@ import Compiler.graph
 import Compiler.program
 import heapq, itertools
 import operator
-import sys
 
 
 class StraightlineAllocator:
     """Allocate variables in a straightline program using n registers.
     It is based on the precondition that every register is only defined once."""
     def __init__(self, n):
+        self.free = defaultdict(set)
         self.alloc = {}
         self.usage = Compiler.program.RegType.create_dict(lambda: 0)
         self.defined = {}
         self.dealloc = set()
         self.n = n
 
-    def alloc_reg(self, reg, free):
+    def alloc_reg(self, reg, persistent_allocation):
         base = reg.vectorbase
         if base in self.alloc:
             # already allocated
@@ -32,8 +33,8 @@ class StraightlineAllocator:
 
         reg_type = reg.reg_type
         size = base.size
-        if free[reg_type, size]:
-            res = free[reg_type, size].pop()
+        if not persistent_allocation and self.free[reg_type, size]:
+            res = self.free[reg_type, size].pop()
         else:
             if self.usage[reg_type] < self.n:
                 res = self.usage[reg_type]
@@ -48,7 +49,7 @@ class StraightlineAllocator:
         else:
             base.i = self.alloc[base]
 
-    def dealloc_reg(self, reg, inst, free):
+    def dealloc_reg(self, reg, inst):
         self.dealloc.add(reg)
         base = reg.vectorbase
 
@@ -57,14 +58,14 @@ class StraightlineAllocator:
                 if i not in self.dealloc:
                     # not all vector elements ready for deallocation
                     return
-        free[reg.reg_type, base.size].add(self.alloc[base])
+        self.free[reg.reg_type, base.size].add(self.alloc[base])
         if inst.is_vec() and base.vector:
             for i in base.vector:
                 self.defined[i] = inst
         else:
             self.defined[reg] = inst
 
-    def process(self, program, alloc_pool):
+    def process(self, program, persistent_allocation=False):
         for k,i in enumerate(reversed(program)):
             unused_regs = []
             for j in i.get_def():
@@ -75,7 +76,7 @@ class StraightlineAllocator:
                                                 (j,i,format_trace(i.caller)))
                 else:
                     # unused register
-                    self.alloc_reg(j, alloc_pool)
+                    self.alloc_reg(j, persistent_allocation)
                     unused_regs.append(j)
             if unused_regs and len(unused_regs) == len(i.get_def()):
                 # only report if all assigned registers are unused
@@ -83,9 +84,9 @@ class StraightlineAllocator:
                     (unused_regs,i,format_trace(i.caller))
 
             for j in i.get_used():
-                self.alloc_reg(j, alloc_pool)
+                self.alloc_reg(j, persistent_allocation)
             for j in i.get_def():
-                self.dealloc_reg(j, i, alloc_pool)
+                self.dealloc_reg(j, i)
 
             if k % 1000000 == 0 and k > 0:
                 print "Allocated registers for %d instructions at" % k, time.asctime()
@@ -98,7 +99,7 @@ class StraightlineAllocator:
         return self.usage
 
 
-def determine_scope(block, options):
+def determine_scope(block):
     last_def = defaultdict(lambda: -1)
     used_from_scope = set()
 
@@ -120,16 +121,12 @@ def determine_scope(block, options):
                 print '\tline %d: %s' % (n, instr)
                 print '\tinstruction trace: %s' % format_trace(instr.caller, '\t\t')
                 print '\tregister trace: %s' % format_trace(reg.caller, '\t\t')
-                if options.stop:
-                    sys.exit(1)
 
     def write(reg, n):
         if last_def[reg] != -1:
             print 'Warning: double write at register', reg
             print '\tline %d: %s' % (n, instr)
             print '\ttrace: %s' % format_trace(instr.caller, '\t\t')
-            if options.stop:
-                sys.exit(1)
         last_def[reg] = n
 
     for n,instr in enumerate(block.instructions):
@@ -165,9 +162,18 @@ class Merger:
         """ Merge an iterable of nodes in G, returning the number of merged
         instructions and the index of the merged instruction. """
         instructions = self.instructions
+
+        ### added for debug (start) ###
+        # print(instructions)
+        ### added for debug (start) ###
+
         mergecount = 0
         try:
             n = next(merges_iter)
+            ### added for debug (start) ###
+            # print("n:"+str(n))
+            ### added for debug (ended) ###
+
         except StopIteration:
             return mergecount, None
 
@@ -182,31 +188,106 @@ class Merger:
                     new_args.append(arg)
             return new_args
 
+        Type_Different_flag = 0
+
         for i in merges_iter:
+
+            ### added for debug (start) ###
+            # print("n:")
+            # print(n)
+            # print('%d-th instructions[n];' % i)
+            # print(instructions[n])
+            # print('%d-th instructions[n].args;' % i)
+            # print(instructions[n].args)
+            # print("instructions[n] type;")
+            # print(type(instructions[n]))
+            # print('%d-th instructions[i];' % i)
+            # print(instructions[i])
+            # print('%d-th instructions[i].args;' % i)
+            # print(instructions[i].args)
+            # print("instructions[i] type;")
+            # print(type(instructions[i]))
+            ### added for debug (ended) ###
+
             if isinstance(instructions[n], startinput_class):
+                ### added for debug (start) ###
+                # print("test1")
+                ### added for debug (ended) ###
+
                 instructions[n].args[1] += instructions[i].args[1]
+
+                ### added for debug (start) ###
+                # print(self.instructions)
+                ### added for debug (ended) ###
+            elif isinstance(instructions[n], (startopen_class,stopopen_class)) and (type(instructions[n]) is not type(instructions[i])):
+                ### added for debug (start) ###
+                # print("check4")
+                # print("type_of_instructions[n]:")
+                # print(type(instructions[n]))
+                # print("type_of_instructions[i]:")
+                # print(type(instructions[i]))
+                ### added for debug (ended) ###
+
+                Type_Different_flag = 1
+
             elif isinstance(instructions[n], (stopinput, gstopinput)):
                 if instructions[n].get_size() != instructions[i].get_size():
                     raise NotImplemented()
                 else:
                     instructions[n].args += instructions[i].args[1:]
+
+                    ### added for debug (start) ###
+                    # print("test2")
+                    ### added for debug (ended) ###
             else:
                 if instructions[n].get_size() != instructions[i].get_size():
+                    ### added for debug (start) ###
+                    # print("test3")
+                    ### added for debug (ended) ###
+
                     # merge as non-vector instruction
                     instructions[n].args = expand_vector_args(instructions[n]) + \
                         expand_vector_args(instructions[i])
                     if instructions[n].is_vec():
                         instructions[n].size = 1
+
+                        ### added for debug (start) ###
+                        # print("test4")
+                        ### added for debug (ended) ###
                 else:
+                    ### added for debug (start) ###
+                    # print("test5")
+                    ### added for debug (ended) ###
                     instructions[n].args += instructions[i].args
                 
             # join arg_formats if not special iterators
             # if not isinstance(instructions[n].arg_format, (itertools.repeat, itertools.cycle)) and \
             #     not isinstance(instructions[i].arg_format, (itertools.repeat, itertools.cycle)):
             #     instructions[n].arg_format += instructions[i].arg_format
-            instructions[i] = None
-            self.merge_nodes(n, i)
-            mergecount += 1
+
+            # instructions[i] = None
+
+            # ADDED
+            if Type_Different_flag == 0:
+                instructions[i] = None
+            else:
+                Type_Different_flag = 0
+            # ADDED END
+
+            ### added for debug (start) ###
+            # print("after instructions[i] = None: "+str(instructions))
+            ### added for debug (ended) ###
+
+            # self.merge_nodes(n, i)
+            # mergecount += 1
+
+            # ADDED
+            if Type_Different_flag == 0:
+                self.merge_nodes(n, i)
+                mergecount += 1
+            else:
+                Type_Different_flag = 0
+            # ADDED END
 
         return mergecount, n
 
@@ -352,42 +433,95 @@ class Merger:
         If reorder_between_opens is True, will attempt to place non-opens between start/stop opens.
 
         Doesn't use networkx.
+
+        Input:
+            - self.G - ?
+            - self.instruction - ?
+            - self.open_nodes
+            - self.depths - for every node, the depth
         """
         G = self.G
         instructions = self.instructions
+        #print(instructions)
         merge_nodes = self.open_nodes
+        #print(merge_nodes) hikaru_comment
         depths = self.depths
+        #print(depths) hikaru_comment
+
+        #checking that merge_stopopen only if merging start_open
         if instruction_type is not startopen_class and merge_stopopens:
             raise CompilerError('Cannot merge stopopens whilst merging %s instructions' % instruction_type)
+
+        #if nothing to merger return - if we have only local instruction (clear instruction)
         if not merge_nodes and not self.input_nodes:
             return 0
+
 
         # merge opens at same depth
         merges = defaultdict(list)
         for node in merge_nodes:
             merges[depths[node]].append(node)
 
+        ### added for debug (start) ###
+        # print("merges:" + str(merges))
+        ### added for debug (ended) ###
+
+        # If you do not want to optimeze, return 0 at this point
+        #return 0
+
         # after merging, the first element in merges[i] remains for each depth i,
         # all others are removed from instructions and G
         last_nodes = [None, None]
-        for i in sorted(merges):
+        for i in sorted(merges): # sorted(mergers): list of depth
             merge = merges[i]
+
+            ### added for debug (start) ###
+            # print("merge:"+str(merge))
+            ### added for debug (ended) ###
+
             if len(merge) > 1000:
                 print 'Merging %d opens in round %d/%d' % (len(merge), i, len(merges))
             nodes = defaultdict(lambda: None)
+            #print("i;"+str(i))
+            #print("check1;"+str(instructions))
+
+
             for b in (False, True):
-                my_merge = (m for m in merge if instructions[m] is not None and instructions[m].is_gf2n() is b)
-                
+                #my_merge = (m for m in merge if instructions[m] is not None and instructions[m].is_gf2n() is b)
+                #my_merge = (m for m in merge if instructions[m] is not None and isinstance(instructions[m], e_startmult_class) is b)
+                my_merge = (m for m in merge if instructions[m] is not None and isinstance(instructions[m], startopen_class) is b)
+                #print("b;"+str(b))
+                #print("check2;" + str(instructions))
+                #print("[generator object]")
+                #print([m for m in merge if instructions[m] is not None and isinstance(instructions[m], startopen_class) is b])
                 if merge_stopopens:
-                    my_stopopen = [G.get_attr(m, 'stop') for m in merge if instructions[m] is not None and instructions[m].is_gf2n() is b]
-                    
+                    #my_stopopen = [G.get_attr(m, 'stop') for m in merge if instructions[m] is not None and instructions[m].is_gf2n() is b]
+                    #my_stopopen = [G.get_attr(m, 'stop') for m in merge if instructions[m] is not None and isinstance(instructions[m], e_startmult_class) is b]
+                    my_stopopen = [G.get_attr(m, 'stop') for m in merge if instructions[m] is not None and isinstance(instructions[m], startopen_class) is b]
+
+                    #print("test")
+                    #print("check2.5;" + str(instructions))
+
                 mc, nodes[0,b] = self.do_merge(iter(my_merge))
+
+                #print("mc;")
+                #print(mc)
+                #print("nodes[0,{0}];".format(b))
+                #print(nodes[0,b])
+                #print("check2.8;" + str(instructions))
+                #print("b;" + str(b))
+                #print("check3;" + str(instructions))
 
                 if merge_stopopens:
                     mc, nodes[1,b] = self.do_merge(iter(my_stopopen))
 
+                    #print("mc;")
+                    #print(mc)
+                    #print("nodes[1,{0}];".format(b))
+                    #print(nodes[1, b])
+
             # add edges to retain order of gf2n/modp start/stop opens
-            for j in (0,1):
+            for j in (0,1): #on all types - and add all edges
                 node2 = nodes[j,True]
                 nodep = nodes[j,False]
                 if nodep is not None and node2 is not None:
@@ -396,7 +530,21 @@ class Merger:
                 if last_nodes[j] is not None:
                     G.add_edge(last_nodes[j], node2 if nodep is None else nodep)
                 last_nodes[j] = nodep if node2 is None else node2
+
+                ### DEBUG (START) ###
+                #print("last_nodes[{0}]:".format(j))
+                #print(last_nodes[j])
+                ### DEBUG (END) ###
+
+            ### DEBUG (START) ###
+            # print("befor replacing"+str(merges))
+            ### DEBUG (END) ###
+
             merges[i] = last_nodes[0]
+
+            ### DEBUG (START) ###
+            # print("after replacing"+str(merges))
+            ### DEBUG (END) ###
 
         self.merge_inputs()
 
@@ -420,9 +568,296 @@ class Merger:
 
         return len(merges)
 
+    def extended_longest_paths_merge_4inst(self, instruction_type=startopen_class,
+                            merge_stopopens=True):
+        """ Attempt to merge instructions of type instruction_type (which are given in
+        merge_nodes) using longest paths algorithm.
+
+        Returns the no. of rounds of communication required after merging (assuming 1 round/instruction).
+
+        If merge_stopopens is True, will also merge associated stop_open instructions.
+        If reorder_between_opens is True, will attempt to place non-opens between start/stop opens.
+
+        Doesn't use networkx.
+
+        Input:
+            - self.G - ?
+            - self.instruction - ?
+            - self.open_nodes
+            - self.depths - for every node, the depth
+        """
+
+        ### Hikaru comment ###
+        # The "extended_isinstance" returns true if the object argument is an instance of the class inheriting startopen_class.
+        # It has been improved in terms of supporting not only modp but also gf2n.
+
+        def extended_isinstance(object):
+            value = 0
+            if isinstance(object,e_startmult_class) and object.is_gf2n() is False:
+                value = 0
+            elif isinstance(object,startopen_class) and object.is_gf2n() is False:
+                value = 1
+            elif isinstance(object,e_startmult_class) and object.is_gf2n() is True:
+                value = 2
+            elif isinstance(object,startopen_class) and object.is_gf2n() is True:
+                value = 3
+
+            ### DEBUG (START) ###
+            # print("class is:")
+            # print(value)
+            ### DEBUG (END) ###
+            return value
+
+        G = self.G
+        instructions = self.instructions
+        merge_nodes = self.open_nodes
+        depths = self.depths
+
+        ### added for debug (start) ###
+        # print("depths:")
+        # print(depths)
+        ### added for debug (ended) ###
+
+        # checking that merge_stopopen only if merging start_open
+        if instruction_type is not startopen_class and merge_stopopens:
+            raise CompilerError('Cannot merge stopopens whilst merging %s instructions' % instruction_type)
+
+        # if nothing to merger return - if we have only local instruction (clear instruction)
+        if not merge_nodes and not self.input_nodes:
+            return 0
+
+        # merge opens at same depth
+        merges = defaultdict(list)
+        for node in merge_nodes:
+            merges[depths[node]].append(node)
+
+        ### added for debug (start) ###
+        print(merges)
+        ### added for debug (ended) ###
+
+        ### added for debug --- without optimization (start) ###
+        # return 0
+        ### added for debug --- without optimization (end) ###
+
+        # after merging, the first element in merges[i] remains for each depth i,
+        # all others are removed from instructions and G
+
+        ### DEBUG (START) ###
+        # print(merges)
+        ### DEBUG (END) ###
+
+        last_nodes = [None, None]
+        for i in sorted(merges):  # sorted(mergers): list of depth
+            merge = merges[i]
+
+            ### added for debug (start) ###
+            # print("merge:" + str(merge))
+            ### added for debug (ended) ###
+
+            if len(merge) > 1000:
+                print 'Merging %d opens in round %d/%d' % (len(merge), i, len(merges))
+            nodes = defaultdict(lambda: None)
+
+            for b in (0, 1, 2, 3):
+
+                ### added for debug (start) ###
+                # print("b:")
+                # print(b)
+                ### added for debug (ended) ###
+
+                my_merge = (m for m in merge if instructions[m] is not None and extended_isinstance(instructions[m]) is b)
+
+                ### DEBUG (START) ###
+                # print("[generator object]")
+                # print([m for m in merge if instructions[m] is not None and extended_isinstance(instructions[m]) is b])
+                ### DEBUG (END) ###
+
+                if merge_stopopens:
+                    my_stopopen = [G.get_attr(m, 'stop') for m in merge if
+                                   instructions[m] is not None and extended_isinstance(instructions[m]) is b]
+
+                mc, nodes[0, b] = self.do_merge(iter(my_merge))
+
+                ### added for debug (start) ###
+                # print("mc;")
+                # print(mc)
+                # print("nodes[0,{0}];".format(b))
+                # print(nodes[0, b])
+                ### added for debug (ended) ###
+
+                if merge_stopopens:
+                    mc, nodes[1, b] = self.do_merge(iter(my_stopopen))
+
+                    ### added for debug (start) ###
+                    # print("mc;")
+                    # print(mc)
+                    # print("nodes[1,{0}];".format(b))
+                    # print(nodes[1, b])
+                    ### added for debug (ended) ###
+
+            # add edges to retain order of gf2n/modp start/stop opens
+            for j in (0, 1):  # on all types - and add all edges
+                node_count = 0
+                tmp_node = None
+
+                ### added for debug (start) ###
+                # print("node_count_init:")
+                # print(node_count)
+                ### added for debug (ended) ###
+
+                e_startmult_node = nodes[j, 0] # e_startmult
+
+                ### added for debug (start) ###
+                # print("node[{0}, 0]: {1}".format(j,nodes[j, 0]))
+                ### added for debug (ended) ###
+
+                if e_startmult_node is not None:
+                    node_count += 1
+                    tmp_node = e_startmult_node
+
+                ### added for debug (start) ###
+                # print("node_count_0:")
+                # print(node_count)
+                ### added for debug (ended) ###
+
+                startopen_node = nodes[j, 1] # startopen
+
+                ### added for debug (start) ###
+                # print("node[{0}, 1]: {1}".format(j,nodes[j, 1]))
+                ### added for debug (start) ###
+
+                if startopen_node is not None:
+                    node_count += 1
+                    tmp_node = startopen_node
+
+                ### added for debug (start) ###
+                # print("node_count_1:")
+                # print(node_count)
+                ### added for debug (ended) ###
+
+                ge_startmult_node = nodes[j, 2] # ge_startmult
+
+                ### added for debug (start) ###
+                # print("node[{0}, 2]: {1}".format(j,nodes[j, 2]))
+                ### added for debug (ended) ###
+
+                if ge_startmult_node is not None:
+                    node_count += 1
+                    tmp_node = ge_startmult_node
+
+                ### added for debug (start) ###
+                # print("node_count_2:")
+                # print(node_count)
+                ### added for debug (ended) ###
+
+                gstartopen_node = nodes[j, 3] # gstartopen
+
+                ### added for debug (start) ###
+                # print("node[{0}, 3]: {1}".format(j,nodes[j, 3]))
+                ### added for debug (ended) ###
+
+                if gstartopen_node is not None:
+                    node_count += 1
+                    tmp_node = gstartopen_node
+
+                ### added for debug (start) ###
+                # print("node_count_res:")
+                # print(node_count)
+                ### added for debug (ended) ###
+
+                if node_count == 2:
+                    if e_startmult_node is not None and startopen_node is not None:
+                        G.add_edge(e_startmult_node, startopen_node)
+                        tmp_node = e_startmult_node
+                    elif e_startmult_node is not None and ge_startmult_node is not None:
+                        G.add_edge(e_startmult_node, ge_startmult_node)
+                        tmp_node = e_startmult_node
+                    elif e_startmult_node is not None and gstartopen_node is not None:
+                        G.add_edge(e_startmult_node, gstartopen_node)
+                        tmp_node = e_startmult_node
+                    elif startopen_node is not None and ge_startmult_node is not None:
+                        G.add_edge(startopen_node, ge_startmult_node)
+                        tmp_node = startopen_node
+                    elif startopen_node is not None and gstartopen_node is not None:
+                        G.add_edge(startopen_node, gstartopen_node)
+                        tmp_node = startopen_node
+                    elif ge_startmult_node is not None and gstartopen_node is not None:
+                        G.add_edge(ge_startmult_node, gstartopen_node)
+                        tmp_node = ge_startmult_node
+                elif node_count == 3:
+                    if e_startmult_node is not None and startopen_node is not None and ge_startmult_node is not None:
+                        G.add_edge(e_startmult_node, startopen_node)
+                        G.add_edge(e_startmult_node, ge_startmult_node)
+                        tmp_node = e_startmult_node
+                    elif e_startmult_node is not None and startopen_node is not None and gstartopen_node is not None:
+                        G.add_edge(e_startmult_node, startopen_node)
+                        G.add_edge(e_startmult_node, gstartopen_node)
+                        tmp_node = e_startmult_node
+                    elif e_startmult_node is not None and ge_startmult_node is not None and gstartopen_node is not None:
+                        G.add_edge(e_startmult_node, ge_startmult_node)
+                        G.add_edge(e_startmult_node, gstartopen_node)
+                        tmp_node = e_startmult_node
+                    elif startopen_node is not None and ge_startmult_node is not None and gstartopen_node is not None:
+                        G.add_edge(startopen_node, ge_startmult_node)
+                        G.add_edge(startopen_node, gstartopen_node)
+                        tmp_node = startopen_node
+                elif node_count == 4:
+                    G.add_edge(e_startmult_node, startopen_node)
+                    G.add_edge(e_startmult_node, ge_startmult_node)
+                    G.add_edge(e_startmult_node, gstartopen_node)
+                    tmp_node = e_startmult_node
+
+                # add edge to retain order of opens over rounds
+                if last_nodes[j] is not None:
+                    if node_count == 0:
+                        pass
+                    else:
+                        G.add_edge(last_nodes[j], tmp_node)
+
+                last_nodes[j] = tmp_node
+            merges[i] = last_nodes[0]
+
+            ### added for debug (start) ###
+            # print("merges[depth]:" + str(merges[i]))
+            # print("merges:"+str(merges))
+            ### added for debug (ended) ###
+
+        self.merge_inputs()
+
+        # compute preorder for topological sort
+        if merge_stopopens and self.options.reorder_between_opens:
+            if self.options.continuous or not merge_nodes:
+                rev_depths = self.compute_max_depths(self.real_depths)
+                preorder = self.compute_continuous_preorder(merges, rev_depths)
+            else:
+                rev_depths = self.compute_max_depths(self.depths)
+                preorder = self.compute_preorder(merges, rev_depths)
+        else:
+            preorder = None
+
+        if len(instructions) > 100000:
+            print "Topological sort ..."
+        order = Compiler.graph.topological_sort(G, preorder)
+        instructions[:] = [instructions[i] for i in order if instructions[i] is not None]
+
+        ### added for debug (start) ###
+        # print(instructions)
+        ### added for debug (ended) ###
+
+        if len(instructions) > 100000:
+            print "Done at", time.asctime()
+
+        return len(merges)
+
     def dependency_graph(self, merge_class=startopen_class):
         """ Create the program dependency graph. """
         block = self.block
+
+        ### DEBUG (START) ###
+        # print("self.block:")
+        # print(block)
+        ### DEBUG (END) ###
+
         options = self.options
         open_nodes = set()
         self.open_nodes = open_nodes
@@ -438,6 +873,12 @@ class Merger:
 
         reg_nodes = {}
         last_def = defaultdict(lambda: -1)
+
+        ### DEBUG (START) ###
+        # print("last_def:")
+        # print(last_def)
+        ### DEBUG (END) ###
+
         last_mem_write = []
         last_mem_read = []
         warned_about_mem = []
@@ -449,10 +890,21 @@ class Merger:
 
         depths = [0] * len(block.instructions)
         self.depths = depths
+
+        ### DEBUG (START) ###
+        # print("In dependency_graph, depth:")
+        # print(depths)
+        ### DEBUG (END) ###
+
         parallel_open = defaultdict(lambda: 0)
         next_available_depth = {}
         self.sources = []
         self.real_depths = [0] * len(block.instructions)
+
+        ### DEBUG (START) ###
+        # print("In dependency_graph, real_depth:")
+        # print(self.real_depths)
+        ### DEBUG (END) ###
 
         def add_edge(i, j):
             from_merge = isinstance(block.instructions[i], merge_class)
@@ -461,15 +913,53 @@ class Merger:
             is_source = G.get_attr(i, 'is_source') and G.get_attr(j, 'is_source') and not from_merge
             G.set_attr(j, 'is_source', is_source)
             for d in (self.depths, self.real_depths):
+
+                ### DEBUG (START) ###
+                # print("before add_edge; self.depths:")
+                # print(self.depths)
+                # print("before add_edge; self.real_depths:")
+                # print(self.real_depths)
+                ### DEBUG (START) ###
+
                 if d[j] < d[i]:
                     d[j] = d[i]
 
+                ### DEBUG (START) ###
+                # print("after add_edge; self.depths:")
+                # print(self.depths)
+                # print("after add_edge; self.real_depths:")
+                # print(self.real_depths)
+                ### DEBUG (START) ###
+
         def read(reg, n):
+
+            ### DEBUG (START) ###
+            # print("reg (read):")
+            # print(reg)
+            # print("last_def (before read):")
+            # print(last_def)
+            ### DEBUG (END) ###
+
             if last_def[reg] != -1:
                 add_edge(last_def[reg], n)
 
         def write(reg, n):
+
+            ### DEBUG (START) ###
+            # print("n (write):")
+            # print(n)
+            # print("reg (write):")
+            # print(reg)
+            # print("last_def (before write):")
+            # print(last_def)
+            ### DEBUG (START) ###
+
             last_def[reg] = n
+
+            ### DEBUG (START) ###
+            # print("last_def (after write):")
+            # print(last_def)
+            ### DEBUG (END) ###
 
         def handle_mem_access(addr, reg_type, last_access_this_kind,
                               last_access_other_kind):
@@ -515,17 +1005,55 @@ class Merger:
         for n,instr in enumerate(block.instructions):
             outputs,inputs = instr.get_def(), instr.get_used()
 
+            ### DEBUG (START) ###
+            # print("n:")
+            # print(n)
+            # print("instr:")
+            # print(instr)
+            # print("outputs:")
+            # print(outputs)
+            # print("inputs:")
+            # print(inputs)
+            ### DEBUG (END) ###
+
             G.add_node(n, is_source=True)
 
             # if options.debug:
             #     col = colordict[instr.__class__.__name__]
             #     G.add_node(n, color=col, label=str(instr))
+
+            ### DEBUG (START) ###
+            # print("read n-th instruction (inputs):")
+            # print(n)
+            ### DEBUG (END) ###
+
             for reg in inputs:
                 if reg.vector and instr.is_vec():
+
+                    ### DEBUG (START) ###
+                    # print("if-branch (read):")
+                    ### DEBUG (END) ###
+
                     for i in reg.vector:
+                        ### DEBUG (START) ###
+                        # print("i:")
+                        # print(i)
+                        ### DEBUG (END) ###
+
                         read(i, n)
                 else:
+                    ### DEBUG (START) ###
+                    # print("else-branch (inputs)")
+                    # print("reg:")
+                    # print(reg)
+                    ### DEBUG (END) ###
+
                     read(reg, n)
+
+            ### DEBUG (START) ###
+            # print("write n-th instruction (outputs):")
+            # print(n)
+            ### DEBUG (END) ###
 
             for reg in outputs:
                 if reg.vector and instr.is_vec():
@@ -535,12 +1063,51 @@ class Merger:
                     write(reg, n)
 
             if isinstance(instr, merge_class):
+                ### DEBUG (START) ###
+                # print("n-th instruction of merge_class:")
+                # print(n)
+                # print(instr)
+                ### DEBUG (END) ###
+
                 open_nodes.add(n)
+
+                ### DEBUG (START) ###
+                # print("open_nodes:")
+                # print(open_nodes)
+                ### DEBUG (END) ###
+
                 last_open.append(n)
+
+                ### DEBUG (START) ###
+                # print("last_open:")
+                # print(last_open)
+                ### DEBUG (END) ###
+
                 G.add_node(n, merges=[])
+
                 # the following must happen after adding the edge
+
+                ### DEBUG (START) ###
+                # print("before real_depths:")
+                # print(self.real_depths)
+                ### DEBUG (END) ###
+
                 self.real_depths[n] += 1
+
+                ### DEBUG (START) ###
+                # print("after real_depths:")
+                # print(self.real_depths)
+                # print("depths:")
+                # print(depths)
+                ### DEBUG (END) ###
+
                 depth = depths[n] + 1
+
+                ### DEBUG (START) ###
+                # print("after depth:")
+                # print(depth)
+                ### DEBUG (END) ###
+
                 if int(options.max_parallel_open):
                     skipped_depths = set()
                     while parallel_open[depth] >= int(options.max_parallel_open):
@@ -549,10 +1116,32 @@ class Merger:
                     for d in skipped_depths:
                         next_available_depth[d] = depth
                 parallel_open[depth] += len(instr.args) * instr.get_size()
+
+                ### DEBUG (START) ###
+                # print("parallel_open;{0}".format(parallel_open))
+                ### DEBUG (END) ###
+
                 depths[n] = depth
 
             if isinstance(instr, stopopen_class):
+                ### DEBUG (START) ###
+                # print("stop n-th instruction:")
+                # print(n)
+                # print("last_open before popleft:")
+                # print(last_open)
+                ### DEBUG (END) ###
+
                 startopen = last_open.popleft()
+
+                ### DEBUG (START) ###
+                # print("startopen:")
+                # print(startopen)
+                # print("last_open after popleft")
+                # print(last_open)
+                # print("add_edge n-th instruction:")
+                # print(n)
+                ### DEBUG (END) ###
+
                 add_edge(startopen, n)
                 G.set_attr(startopen, 'stop', n)
                 G.set_attr(n, 'start', last_open)

@@ -12,6 +12,10 @@
 #include <algorithm>
 #include <sstream>
 #include <map>
+#include <math.h>
+#include <string>
+#include <iostream>
+#include <bitset>
 
 
 // Convert modp to signed bigint of a given bit length
@@ -44,7 +48,7 @@ void Instruction::parse(istream& s)
   int pos=s.tellg();
   opcode=get_int(s);
   size=opcode>>9;
-  opcode&=0x1FF;
+  opcode&=0x3FF;
   
   if (size==0)
     size=1;
@@ -221,7 +225,7 @@ void BaseInstruction::parse_operands(istream& s, int pos)
       case STMS:
       case LDMINT:
       case STMINT:
-      case INPUT:
+//      case INPUT:
       case JMPNZ:
       case JMPEQZ:
       case GLDI:
@@ -242,6 +246,10 @@ void BaseInstruction::parse_operands(istream& s, int pos)
       case GINPUTMASK:
       case ACCEPTCLIENTCONNECTION:
         r[0]=get_int(s);
+        n = get_int(s);
+        break;
+      case INPUT:
+        get_vector(1, start, s);
         n = get_int(s);
         break;
       // instructions with 1 integer operand
@@ -267,8 +275,14 @@ void BaseInstruction::parse_operands(istream& s, int pos)
       case GSTARTOPEN:
       case GSTOPOPEN:
       case WRITEFILESHARE:
+      case E_STARTMULT:
+      case E_STOPMULT:
+      case GE_STARTMULT:
+      case GE_STOPMULT:
         num_var_args = get_int(s);
         get_vector(num_var_args, start, s);
+//        cout << "[Instruction.cpp::parse_operands] num_var_args = " << num_var_args << endl;
+//        cout << "[Instruction.cpp::parse_operands] start.size() = " << start.size() << endl;
         break;
 
       // read from file, input is opcode num_args, 
@@ -352,6 +366,33 @@ void BaseInstruction::parse_operands(istream& s, int pos)
             throw Processor_Error(ss.str());
           }
         break;
+      case E_INPUT_SHARE_INT:
+      case GE_INPUT_SHARE_INT:
+    	  n = get_int(s);
+    	  num_var_args = get_int(s);
+    	  get_vector(num_var_args, start, s);
+    	  break;
+      case E_SKEW_BIT_DEC:
+    	  r[0] = get_int(s);
+    	  n = get_int(s);
+    	  num_var_args = n * 3;
+    	  get_vector(num_var_args, start, s);
+    	  break;
+      case E_SKEW_BIT_INJ:
+      case E_SKEW_BIT_REC:
+         r[0] = get_int(s);
+         get_vector(3, start, s);
+         break;
+      case E_SKEW_RING_REC:
+    	  r[0] = get_int(s);
+    	  num_var_args = get_int(s);
+    	  get_vector(num_var_args, start, s);
+    	  break;
+      case E_PRINTFIXEDPLAIN:
+    	  r[0] = get_int(s);
+    	  n = get_int(s);
+    	  break;
+
       default:
         ostringstream os;
         os << "Invalid instruction " << hex << showbase << opcode << " at " << dec << pos;
@@ -544,7 +585,21 @@ void Instruction::execute(Processor& Proc) const
         Proc.write_C2(r[0],Proc.temp.ans2);
         break;
       case LDSI:
-        { Proc.temp.ansp.assign(n);
+        {
+        	Proc.temp.ansp.assign(n);
+		#if defined(EXT_NEC_RING)
+        	if (Proc.P.my_num()==0) {
+        		Proc.get_Sp_ref(r[0]).assign_zero();
+        	}
+        	else if (Proc.P.my_num()==1) {
+        		Proc.get_Sp_ref(r[0]).set_share(Proc.temp.ansp);
+        		Proc.get_Sp_ref(r[0]).set_mac(Proc.temp.ansp);
+        	}
+        	else if (Proc.P.my_num()==2) {
+        		Proc.get_Sp_ref(r[0]).assign_zero();
+        		Proc.get_Sp_ref(r[0]).set_share(Proc.temp.ansp);
+        	}
+		#else
           if (Proc.P.my_num()==0)
             Proc.get_Sp_ref(r[0]).set_share(Proc.temp.ansp);
           else
@@ -552,10 +607,24 @@ void Instruction::execute(Processor& Proc) const
           gfp& tmp=Proc.temp.tmpp;
           tmp.mul(Proc.MCp.get_alphai(),Proc.temp.ansp);
           Proc.get_Sp_ref(r[0]).set_mac(tmp);
+		#endif
         }
         break;
       case GLDSI:
         { Proc.temp.ans2.assign(n);
+#if defined(EXT_NEC_RING)
+	if (Proc.P.my_num()==0) {
+		Proc.get_S2_ref(r[0]).assign_zero();
+	}
+	else if (Proc.P.my_num()==1) {
+		Proc.get_S2_ref(r[0]).set_share(Proc.temp.ans2);
+		Proc.get_S2_ref(r[0]).set_mac(Proc.temp.ans2);
+	}
+	else if (Proc.P.my_num()==2) {
+		Proc.get_S2_ref(r[0]).assign_zero();
+		Proc.get_S2_ref(r[0]).set_share(Proc.temp.ans2);
+	}
+#else
           if (Proc.P.my_num()==0)
             Proc.get_S2_ref(r[0]).set_share(Proc.temp.ans2);
           else
@@ -563,6 +632,7 @@ void Instruction::execute(Processor& Proc) const
           gf2n& tmp=Proc.temp.tmp2;
           tmp.mul(Proc.MC2.get_alphai(),Proc.temp.ans2);
           Proc.get_S2_ref(r[0]).set_mac(tmp);
+#endif
         }
         break;
       case LDMC:
@@ -716,7 +786,9 @@ void Instruction::execute(Processor& Proc) const
         #ifdef DEBUG
            Sansp.add(Proc.read_Sp(r[1]),Proc.read_Cp(r[2]),Proc.P.my_num()==0,Proc.MCp.get_alphai());
 	   Proc.write_Sp(r[0],Sansp);
-        #else
+        #elif defined(EXT_NEC_RING)
+	        Proc.get_Sp_ref(r[0]).add(Proc.read_Sp(r[1]),Proc.read_Cp(r[2]),Proc.P.my_num());
+	     #else
            Proc.get_Sp_ref(r[0]).add(Proc.read_Sp(r[1]),Proc.read_Cp(r[2]),Proc.P.my_num()==0,Proc.MCp.get_alphai());
         #endif
         break;
@@ -724,6 +796,8 @@ void Instruction::execute(Processor& Proc) const
         #ifdef DEBUG
            Sans2.add(Proc.read_S2(r[1]),Proc.read_C2(r[2]),Proc.P.my_num()==0,Proc.MC2.get_alphai());
 	   Proc.write_S2(r[0],Sans2);
+#elif defined(EXT_NEC_RING)
+	        Proc.get_S2_ref(r[0]).add(Proc.read_S2(r[1]),Proc.read_C2(r[2]),Proc.P.my_num());
         #else
            Proc.get_S2_ref(r[0]).add(Proc.read_S2(r[1]),Proc.read_C2(r[2]),Proc.P.my_num()==0,Proc.MC2.get_alphai());
         #endif
@@ -764,6 +838,8 @@ void Instruction::execute(Processor& Proc) const
 	#ifdef DEBUG
            Sansp.sub(Proc.read_Sp(r[1]),Proc.read_Cp(r[2]),Proc.P.my_num()==0,Proc.MCp.get_alphai());
 	   Proc.write_Sp(r[0],Sansp);
+        #elif defined(EXT_NEC_RING)
+	   Proc.get_Sp_ref(r[0]).sub(Proc.read_Sp(r[1]),Proc.read_Cp(r[2]),Proc.P.my_num());
         #else
            Proc.get_Sp_ref(r[0]).sub(Proc.read_Sp(r[1]),Proc.read_Cp(r[2]),Proc.P.my_num()==0,Proc.MCp.get_alphai());
         #endif
@@ -780,6 +856,8 @@ void Instruction::execute(Processor& Proc) const
         #ifdef DEBUG
            Sansp.sub(Proc.read_Cp(r[1]),Proc.read_Sp(r[2]),Proc.P.my_num()==0,Proc.MCp.get_alphai());
 	   Proc.write_Sp(r[0],Sansp);
+        #elif defined(EXT_NEC_RING)
+	        Proc.get_Sp_ref(r[0]).sub(Proc.read_Cp(r[1]),Proc.read_Sp(r[2]),Proc.P.my_num());
         #else
            Proc.get_Sp_ref(r[0]).sub(Proc.read_Cp(r[1]),Proc.read_Sp(r[2]),Proc.P.my_num()==0,Proc.MCp.get_alphai());
 	#endif
@@ -923,7 +1001,9 @@ void Instruction::execute(Processor& Proc) const
 	#ifdef DEBUG
            Sansp.add(Proc.read_Sp(r[1]),Proc.temp.ansp,Proc.P.my_num()==0,Proc.MCp.get_alphai());
 	   Proc.write_Sp(r[0],Sansp);
-        #else
+   #elif defined(EXT_NEC_RING)
+	   Proc.get_Sp_ref(r[0]).add(Proc.read_Sp(r[1]),Proc.temp.ansp,Proc.P.my_num());
+   #else
            Proc.get_Sp_ref(r[0]).add(Proc.read_Sp(r[1]),Proc.temp.ansp,Proc.P.my_num()==0,Proc.MCp.get_alphai());
 	#endif
         break;
@@ -932,6 +1012,8 @@ void Instruction::execute(Processor& Proc) const
 	#ifdef DEBUG
            Sans2.add(Proc.read_S2(r[1]),Proc.temp.ans2,Proc.P.my_num()==0,Proc.MC2.get_alphai());
 	   Proc.write_S2(r[0],Sans2);
+#elif defined(EXT_NEC_RING)
+	   Proc.get_S2_ref(r[0]).add(Proc.read_S2(r[1]),Proc.temp.ans2,Proc.P.my_num());
         #else
            Proc.get_S2_ref(r[0]).add(Proc.read_S2(r[1]),Proc.temp.ans2,Proc.P.my_num()==0,Proc.MC2.get_alphai());
 	#endif
@@ -959,6 +1041,8 @@ void Instruction::execute(Processor& Proc) const
   	#ifdef DEBUG
            Sansp.sub(Proc.read_Sp(r[1]),Proc.temp.ansp,Proc.P.my_num()==0,Proc.MCp.get_alphai());
 	   Proc.write_Sp(r[0],Sansp);
+   #elif defined(EXT_NEC_RING)
+	   Proc.get_Sp_ref(r[0]).sub(Proc.read_Sp(r[1]),Proc.temp.ansp,Proc.P.my_num());
         #else
            Proc.get_Sp_ref(r[0]).sub(Proc.read_Sp(r[1]),Proc.temp.ansp,Proc.P.my_num()==0,Proc.MCp.get_alphai());
         #endif
@@ -995,6 +1079,8 @@ void Instruction::execute(Processor& Proc) const
  	#ifdef DEBUG
            Sansp.sub(Proc.temp.ansp,Proc.read_Sp(r[1]),Proc.P.my_num()==0,Proc.MCp.get_alphai());
 	   Proc.write_Sp(r[0],Sansp);
+   #elif defined(EXT_NEC_RING)
+	   Proc.get_Sp_ref(r[0]).sub(Proc.temp.ansp,Proc.read_Sp(r[1]),Proc.P.my_num());
 	#else
            Proc.get_Sp_ref(r[0]).sub(Proc.temp.ansp,Proc.read_Sp(r[1]),Proc.P.my_num()==0,Proc.MCp.get_alphai());
 	#endif
@@ -1085,30 +1171,33 @@ void Instruction::execute(Processor& Proc) const
           Proc.temp.ans2.output(Proc.private_output, false);
         break;
       case INPUT:
-        { gfp& rr=Proc.temp.rrp; gfp& t=Proc.temp.tp; gfp& tmp=Proc.temp.tmpp;
-          Proc.DataF.get_input(Proc.get_Sp_ref(r[0]),rr,n);
-          octetStream o;
-          if (n==Proc.P.my_num())
-            { gfp& xi=Proc.temp.xip;
-	      #ifdef DEBUG
-	         printf("Enter your input : \n");
-	      #endif
-              word x;
-              cin >> x;
-              t.assign(x);
-              t.sub(t,rr);
-              t.pack(o);
-              Proc.P.send_all(o);
-              xi.add(t,Proc.get_Sp_ref(r[0]).get_share());
-              Proc.get_Sp_ref(r[0]).set_share(xi);
-            }
-          else
-            { Proc.P.receive_player(n,o);
-              t.unpack(o);
-            }
-          tmp.mul(Proc.MCp.get_alphai(),t);
-          tmp.add(Proc.get_Sp_ref(r[0]).get_mac(),tmp);
-          Proc.get_Sp_ref(r[0]).set_mac(tmp);
+        {
+        	Proc.Ext_Input_Share_Int(start, size, n);
+//        	cout << "[Instruction.cpp::Input] test" << endl;
+//        	gfp& rr=Proc.temp.rrp; gfp& t=Proc.temp.tp; gfp& tmp=Proc.temp.tmpp;
+//          Proc.DataF.get_input(Proc.get_Sp_ref(r[0]),rr,n);
+//          octetStream o;
+//          if (n==Proc.P.my_num())
+//            { gfp& xi=Proc.temp.xip;
+//	      #ifdef DEBUG
+//	         printf("Enter your input : \n");
+//	      #endif
+//              word x;
+//              cin >> x;
+//              t.assign(x);
+//              t.sub(t,rr);
+//              t.pack(o);
+//              Proc.P.send_all(o);
+//              xi.add(t,Proc.get_Sp_ref(r[0]).get_share());
+//              Proc.get_Sp_ref(r[0]).set_share(xi);
+//            }
+//          else
+//            { Proc.P.receive_player(n,o);
+//              t.unpack(o);
+//            }
+//          tmp.mul(Proc.MCp.get_alphai(),t);
+//          tmp.add(Proc.get_Sp_ref(r[0]).get_mac(),tmp);
+//          Proc.get_Sp_ref(r[0]).set_mac(tmp);
         }
         break;
       case GINPUT:
@@ -1347,16 +1436,32 @@ void Instruction::execute(Processor& Proc) const
           }
         return;
       case STARTOPEN:
-        Proc.POpen_Start(start,Proc.P,Proc.MCp,size);
+#if defined(EXT_NEC_RING)
+    	  Proc.Ext_Open_Start(start, size);
+#else
+    	  Proc.POpen_Start(start,Proc.P,Proc.MCp,size);
+#endif
         return;
       case GSTARTOPEN:
+#if defined(EXT_NEC_RING)
+    	  Proc.Ext_BOpen_Start(start, size);
+#else
         Proc.POpen_Start(start,Proc.P,Proc.MC2,size);
+#endif
         return;
       case STOPOPEN:
+#if defined(EXT_NEC_RING)
+    	  Proc.Ext_Open_Stop(start, size);
+#else
         Proc.POpen_Stop(start,Proc.P,Proc.MCp,size);
+#endif
         return;
       case GSTOPOPEN:
+#if defined(EXT_NEC_RING)
+    	  Proc.Ext_BOpen_Stop(start, size);
+#else
         Proc.POpen_Stop(start,Proc.P,Proc.MC2,size);
+#endif
         return;
       case JMP:
         Proc.PC += (signed int) n;
@@ -1424,8 +1529,12 @@ void Instruction::execute(Processor& Proc) const
         Proc.get_C2_ref(r[0]).assign((word)Proc.read_Ci(r[1]));
         break;
       case CONVMODP:
+#if defined(EXT_NEC_RING)
+    	  Proc.write_Ci(r[0], (long)(Proc.read_Cp(r[1]).get_ring()));
+#else
         to_signed_bigint(Proc.temp.aa,Proc.read_Cp(r[1]),n);
         Proc.write_Ci(r[0], Proc.temp.aa.get_si());
+#endif
         break;
       case GCONVGF2N:
         Proc.write_Ci(r[0], Proc.read_C2(r[1]).get_word());
@@ -1467,6 +1576,7 @@ void Instruction::execute(Processor& Proc) const
       case PRINTFLOATPLAIN:
         if (Proc.P.my_num() == 0)
           {
+        	/* original(start)
             gfp v = Proc.read_Cp(start[0]);
             gfp p = Proc.read_Cp(start[1]);
             gfp z = Proc.read_Cp(start[2]);
@@ -1487,6 +1597,105 @@ void Instruction::execute(Processor& Proc) const
             if (not z.is_bit() or not s.is_bit())
               throw Processor_Error("invalid floating point number");
             cout << res << flush;
+
+              original(stop)
+        	 */
+        	int flag = 0;
+        	//flag = 1: binary, flag = 0 : decimal, flag = 2: hexadecimal
+        	uint64_t v = Proc.read_Cp(start[0]).get_ring();
+        	uint64_t p = Proc.read_Cp(start[1]).get_ring();
+        	uint64_t z = Proc.read_Cp(start[2]).get_ring();
+        	uint64_t s = Proc.read_Cp(start[3]).get_ring();
+
+        	int p2 = p;
+
+         	std::string res;
+         	//std::string str_v2;
+
+        	//cout << p << flush;
+        	//std::string str_v = std::to_string(v2);
+
+        	//std::string res2;
+
+         	std::string bin_v = std::bitset<24>(v).to_string();
+         	std::stringstream hex_v;
+         	hex_v << std::hex << v;
+
+         	if(flag == 0){
+         		if (z == 0){
+         			//if zero flag is 1
+
+         			if(s == 1){
+         				res = "-" + std::to_string(v);
+         				res = res + " e " + std::to_string(p2);
+         			}
+         			else{
+         				//for Debug
+         				//p = 1 - p;
+         				res = std::to_string(v) + " e " + std::to_string(p2);
+         			}
+
+         			cout << res << flush;
+
+         		}
+         		else{
+         			cout << 1-z <<flush;
+         		}
+         	}
+
+        	if(flag == 1){
+        		if (z == 0){
+        	        		//if zero flag is 1
+
+        	        		if(s == 1){
+        	        			res = "-" + bin_v;
+        	        			res = res + " e " + std::to_string(p2);
+        	        		}
+        	        		else{
+        	        			res = bin_v + " e " + std::to_string(p2);
+        	        		}
+
+        	        		cout << res << flush;
+        	        	}
+        	       else{
+        	        	cout << 1-z <<flush;
+        	       	}
+        	}
+
+        	if(flag == 2){
+        	  	if (z == 0){
+        	        	  	//if zero flag is 1
+        	          	if(s == 1){
+        	          		res = "- 0x" + hex_v.str();
+          	        		res = res + " e " + std::to_string(p2);
+        	          	}
+        	          	else{
+          	        		res = "0x" + hex_v.str() + " e " + std::to_string(p2);
+        	          	}
+
+        	          	cout << res << flush;
+           	       	}
+        	  	else{
+        	      	cout << 1-z <<flush;
+        	  	}
+        	}
+        	//std::string v2 = std::to_string(v);
+
+        	/*
+        	cout << v2 << flush;
+        	cout << p << flush;
+        	cout << z << flush;
+        	cout << s << flush;
+
+
+        	 * print char
+        	std::string str = "hoge";
+        	printf("%s\n",str.c_str());
+        	cout << str.c_str() << flush;
+        	 */
+
+
+
           }
       break;
       case PRINTINT:
@@ -1653,14 +1862,21 @@ void Instruction::execute(Processor& Proc) const
         Proc.DataF.get<gf2n>(Proc, r, start, size);
         return;
       case E_SKEW_BIT_DEC:
-    	Proc.Ext_Skew_Bit_Decomp(start, size);
+    	Proc.Ext_Skew_Bit_Decomp_R2B(Proc.get_Sp_ref(r[0]), start, size);
     	break;
+      case E_SKEW_BIT_REC:
+       Proc.Ext_Skew_Bit_Decomp_B2B(Proc.get_S2_ref(r[0]), start, size);
+      break;
       case E_SKEW_RING_REC:
-    	Proc.Ext_Skew_Ring_Comp(start, size);
+    	Proc.Ext_Skew_Ring_Comp(r[0], start, size);
+
     	break;
       case E_INPUT_SHARE_INT:
     	Proc.Ext_Input_Share_Int(start, size, n);
     	break;
+      case GE_INPUT_SHARE_INT:
+      Proc.Ext_BInput_Share_Int(start, size, n);
+      break;
       case E_INPUT_SHARE_FIX:
       	Proc.Ext_Input_Share_Fix(start, size, n);
     	break;
@@ -1676,17 +1892,70 @@ void Instruction::execute(Processor& Proc) const
       case E_VERIFY_FINAL:
     	Proc.Ext_Final_Verification();
     	break;
-      case E_START_MULT:
+      case E_SKEW_BIT_INJ:
+    	  Proc.Ext_Skew_Bit_Decomp_B2R(Proc.get_S2_ref(r[0]), start, size);
+      break;
+//      case E_START_MULT:
+      case E_STARTMULT:
     	Proc.Ext_Mult_Start(start, size);
     	break;
-      case E_STOP_MULT:
+//      case E_STOP_MULT:
+      case E_STOPMULT:
       	Proc.Ext_Mult_Stop(start, size);
+      	break;
+      case GE_STARTMULT:
+    	Proc.Ext_BMult_Start(start, size);
+    	break;
+//      case E_STOP_MULT:
+      case GE_STOPMULT:
+      	Proc.Ext_BMult_Stop(start, size);
       	break;
       case E_START_OPEN:
       	Proc.Ext_Open_Start(start, size);
       	break;
       case E_STOP_OPEN:
         Proc.Ext_Open_Stop(start, size);
+        break;
+      case E_PRINTFIXEDPLAIN:
+        if (Proc.P.my_num() == 0)
+          {
+        		   uint64_t tmp_val = Proc.read_Cp(r[0]).get_ring();
+        		   uint64_t val;
+        		   double res =0;
+        		   double int_part =0;
+        		   double dec_part =0;
+        		   int sign = (tmp_val >> 63) & 1;
+        		   if (sign == 1)
+        		   {
+        			   val = 0 - tmp_val;
+        		   }
+        		   else
+        		   {
+        			   val = tmp_val;
+        		   }
+        		   for(int i = 0; i < 64; i++)
+        		   {
+        			   if(i < n)
+        			   {
+        				   dec_part += ((val >> i) & 1) * pow(2.0, (double) (-(n-i)));
+        			   }
+        			   else
+        			   {
+        				   int_part += ((val >> i) & 1) * pow(2.0, (double) (i-n));
+        			   }
+        		   }
+
+        		   res = int_part + dec_part;
+
+        		   if (sign == 1)
+        		   {
+        			   cout << "-" << res << flush;;
+        		   }
+        		   else
+        		   {
+        			   cout << res << flush;;
+        		   }
+          }
         break;
       default:
         printf("Case of opcode=%d not implemented yet\n",opcode);

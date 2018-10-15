@@ -1,0 +1,4 @@
+[parallel_1_0.txt]
+evaluation result = 1
+[parallel_1_1.txt]
+evaluation result = 0

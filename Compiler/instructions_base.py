@@ -1,4 +1,5 @@
-# (C) 2018 University of Bristol. See License.txt
+# Confidential:
+# (C) 2017 University of Bristol. See License.txt
 
 import itertools
 from random import randint
@@ -79,11 +80,17 @@ opcodes = dict(
     MODCI = 0x37,
     LEGENDREC = 0x38,
     DIGESTC = 0x39,
+    E_STARTMULT = 0x40,
+    E_STOPMULT = 0x41,
+    E_MULTI_STARTMULT = 0x42,
+    E_MULTI_STOPMULT = 0x43,
     GMULBITC = 0x136,
     GMULBITM = 0x137,
     # Open
     STARTOPEN = 0xA0,
     STOPOPEN = 0xA1,
+    E_STARTOPEN = 0xA2,
+    E_STOPOPEN = 0xA3,
     # Data access
     TRIPLE = 0x50,
     BIT = 0x51,
@@ -156,15 +163,42 @@ opcodes = dict(
     PRINTCHRINT = 0xBA,
     PRINTSTRINT = 0xBB,
     PRINTFLOATPLAIN = 0xBC,
+    E_PRINTFIXEDPLAIN = 0x1BC,
     WRITEFILESHARE = 0xBD,    
-    READFILESHARE = 0xBE,     
+    READFILESHARE = 0xBE,
+    E_READ_FROM_FILE = 0xBF,
+    GE_READ_FROM_FILE = 0x1BF,
     GBITDEC = 0x184,
     GBITCOM = 0x185,
+    # bit de-compostion (BIU-NEC)
+    E_BITDEC = 0x186,
+    E_SKEW_DEC = 0x187,
+    # bit injection (BIU-NEC)
+    E_BITINJ = 0x188,
+    E_SKEW_INJ = 0x189,
+    # bit re-composition (BIU-NEC)
+    E_BITREC = 0x190,
+    E_SKEW_REC = 0x191,
+    E_POST_REC = 0x192,
     # Secure socket
     INITSECURESOCKET = 0x1BA,
     RESPSECURESOCKET = 0x1BB,
-
-    E_SKEW_BIT_DEC = 0x201
+    # added-extensions
+    E_SKEW_BIT_DEC = 0x201,
+    E_SKEW_RING_REC = 0x202,
+    E_INPUT_SHARE_INT = 0x203,
+    GE_INPUT_SHARE_INT = 0x303,
+    E_INPUT_SHARE_FIX = 0x204,
+    E_INPUT_CLEAR_INT = 0x205,
+    E_INPUT_CLEAR_FIX = 0x206,
+    E_VERIFY_OPTIONAL_SUGGEST = 0x207,
+    E_VERIFY_FINAL = 0x208,
+    E_SKEW_BIT_INJ = 0x209,
+    E_SKEW_BIT_REC = 0x210,
+    #E_START_MULT = 0x209,
+    #E_STOP_MULT = 0x20A,
+    E_START_OPEN = 0x20B,
+    E_STOP_OPEN = 0x20C
 )
 
 

@@ -9,6 +9,10 @@ OPTIM= -O3
 #DEBUG = -DDEBUG
 #MEMPROTECT = -DMEMPROTECT
 
+# set this to configure extension flags for ring operation
+NEC_RING_FLAG='-DEXT_NEC_RING'
+SPDZEXT_VALTYPE = -DSPDZEXT_VALTYPE=u_int64_t
+
 # set this to your preferred local storage directory
 PREP_DIR = '-DPREP_DIR="Player-Data/"'
 
@@ -42,7 +46,7 @@ LDLIBS += -lrt
 endif
 
 CXX = g++
-CFLAGS = $(ARCH) $(MY_CFLAGS) -g -Wextra -Wall $(OPTIM) -I$(ROOT) -pthread $(PROF) $(DEBUG) $(MOD) $(MEMPROTECT) $(GF2N_LONG) $(PREP_DIR) -maes -mpclmul -msse4.1 --std=c++11 -Werror
+CFLAGS = $(ARCH) $(MY_CFLAGS) -g -Wextra -Wall $(OPTIM) -I$(ROOT) -pthread $(PROF) $(DEBUG) $(MOD) $(MEMPROTECT) $(GF2N_LONG) $(PREP_DIR) $(NEC_RING_FLAG) $(SPDZEXT_VALTYPE)  -maes -mpclmul -msse4.1 --std=c++11 -Werror
 CPPFLAGS = $(CFLAGS)
 LD = g++
 

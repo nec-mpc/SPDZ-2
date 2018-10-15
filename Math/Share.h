@@ -69,6 +69,12 @@ class Share
    void sub(const Share<T>& S1,const Share<T>& S2);
    void add(const Share<T>& S1) { add(*this,S1); }
 
+#if defined(EXT_NEC_RING)
+   void add(const Share<T>& S,const T& aa, int player);
+   void sub(const Share<T>& S,const T& aa,int player);
+   void sub(const T& aa,const Share<T>& S,int player);
+#endif
+
    Share<T> operator+(const Share<T>& x) const
    { Share<T> res; res.add(*this, x); return res; }
    template <class U>

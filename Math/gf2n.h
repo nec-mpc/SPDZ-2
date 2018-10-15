@@ -26,7 +26,13 @@ using namespace std;
 
 class gf2n_short
 {
+//#if defined(EXT_NEC_RING)
+//	SPDZEXT_VALTYPE a;
+//#else
   word a;
+//#endif
+
+//	uint8_t a;
 
   static int n,t1,t2,t3,nterms;
   static int l0,l1,l2,l3;
@@ -80,9 +86,27 @@ class gf2n_short
   void assign_zero()             { a=0; }
   void assign_one()              { a=1; } 
   void assign_x()                { a=2; }
-  void assign(word aa)           { a=aa&mask; }
-  void assign(long aa)           { assign(word(aa)); }
-  void assign(int aa)            { a=static_cast<unsigned int>(aa)&mask; }
+  void assign(word aa)           {
+#if defined(EXT_NEC_RING)
+	  a=aa;
+#else
+	  a=aa&mask;
+#endif
+  }
+  void assign(long aa)           {
+#if defined(EXT_NEC_RING)
+	  a=aa;
+#else
+	  assign(word(aa));
+#endif
+  }
+  void assign(int aa)            {
+#if defined(EXT_NEC_RING)
+	  a=static_cast<unsigned int>(aa);
+#else
+	  a=static_cast<unsigned int>(aa)&mask;
+#endif
+  }
   void assign(const char* buffer) { a = *(word*)buffer; }
 
   int get_bit(int i) const

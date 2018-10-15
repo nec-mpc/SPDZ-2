@@ -121,6 +121,12 @@ class Processor : public ProcessorBase
   vector<Share<gf2n> > Sh_PO2;
   vector<Share<gfp> >  Sh_POp;
 
+  vector<Share<gfp> > lhs_factors_ring;
+  vector<Share<gfp> > rhs_factors_ring;
+
+  vector<Share<gf2n> > lhs_factors_bit;
+  vector<Share<gf2n> > rhs_factors_bit;
+
   int reg_max2,reg_maxp,reg_maxi;
   int thread_num;
 
@@ -329,12 +335,18 @@ class Processor : public ProcessorBase
 
   template <class T>
   void load_shares(const vector<int>& reg, const vector< Share<T> >& shares, int size);
+#if defined(EXT_NEC_RING)
+  template <class T>
+  void load_bshares(const vector<int>& reg, const vector< Share<T> >& shares, int size);
+#endif
 
   template <class T>
   void load_clears(const vector<int>& reg, vector<T>& PO, vector<T>& C, int size);
 
-  void Ext_Skew_Bit_Decomp(const vector<int>& reg, int size);
-  void Ext_Skew_Ring_Comp(const vector<int>& reg, int size);
+  void Ext_Skew_Bit_Decomp_R2B(const Share<gfp>& src, const vector<int>& reg, int size); //ring to bool
+  void Ext_Skew_Bit_Decomp_B2B(const Share<gf2n>& src, const vector<int>& reg, int size); //bool to bool
+  void Ext_Skew_Bit_Decomp_B2R(const Share<gf2n>& src, const vector<int>& reg, int size); //bool to ring
+  void Ext_Skew_Ring_Comp(const int& dest, const vector<int>& reg, int size);
   void Ext_Input_Share_Int(const vector<int>& reg, int size, const int input_party_id);
   void Ext_Input_Share_Fix(const vector<int>& reg, int size, const int input_party_id);
   void Ext_Input_Clear_Int(const vector<int>& reg, int size, const int input_party_id);
@@ -346,6 +358,40 @@ class Processor : public ProcessorBase
   void Ext_Open_Start(const vector<int>& reg, int size);
   void Ext_Open_Stop(const vector<int>& reg, int size);
 
+#if defined(EXT_NEC_RING)
+  void Ext_BInput_Share_Int(const vector<int>& reg, int size, const int input_party_id);
+  void Ext_BOpen_Start(const vector<int>& reg, int size);
+  void Ext_BOpen_Stop(const vector<int>& reg, int size);
+  void Ext_BMult_Start(const vector<int>& reg, int size);
+  void Ext_BMult_Stop(const vector<int>& reg, int size);
+#endif
+
+  size_t mult_allocated;
+  share_t mult_factor1, mult_factor2, mult_product;
+  void mult_allocate(const size_t required_count);
+  void mult_clear();
+
+#if defined(EXT_NEC_RING)
+  size_t bmult_allocated;
+  share_t bmult_factor1, bmult_factor2, bmult_product;
+  void bmult_allocate(const size_t required_count);
+  void bmult_clear();
+#endif
+
+  size_t open_allocated;
+  share_t open_shares;
+  clear_t open_clears;
+  void open_allocate(const size_t required_count);
+  void open_clear();
+
+#if defined(EXT_NEC_RING)
+  size_t bopen_allocated;
+  share_t bopen_shares;
+  clear_t bopen_clears;
+  void bopen_allocate(const size_t required_cound);
+  void bopen_clear();
+#endif
+
   // Print the processor state
   friend ostream& operator<<(ostream& s,const Processor& P);
 
@@ -354,27 +400,24 @@ class Processor : public ProcessorBase
     void maybe_encrypt_sequence(int client_id);
 
     MPC_CTX spdz_gfp_ext_context;
+    MPC_CTX spdz_gf2n_ext_context;
     size_t zp_word64_size;
-    FILE * input_file_int, * input_file_fix, * input_file_share;
+    FILE * input_file_int, * input_file_fix, * input_file_share, *input_file_bit;
     static size_t get_zp_word64_size();
     void export_shares(const vector< Share<gfp> > & shares_in, share_t & shares_out);
     void import_shares(const share_t & shares_in, vector< Share<gfp> > & shares_out);
     void import_clears(const clear_t & clear_in, vector< gfp > & clears_out);
+#if defined(EXT_NEC_RING)
+    void export_shares(const vector< Share<gf2n> > & shares_in, share_t & shares_out);
+    void import_shares(const share_t & shares_in, vector< Share<gf2n> > & shares_out);
+    void import_clears(const clear_t & clear_in, vector< gf2n > & clears_out);
+#endif
     int open_input_file();
     int close_input_file();
     int read_input_line(FILE * input_file, std::string & line);
     void mult_stop_prep_products(const vector<int>& reg, int size);
 
-    size_t mult_allocated;
-    share_t mult_factor1, mult_factor2, mult_product;
-    void mult_allocate(const size_t required_count);
-    void mult_clear();
 
-    size_t open_allocated;
-    share_t open_shares;
-    clear_t open_clears;
-    void open_allocate(const size_t required_count);
-    void open_clear();
 };
 
 template<> inline Share<gf2n>& Processor::get_S_ref(int i) { return get_S2_ref(i); }

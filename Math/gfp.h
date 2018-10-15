@@ -22,11 +22,15 @@ using namespace std;
  * for the FHE scheme
  */
 
-
 class gfp
 {
   modp a;
   static Zp_Data ZpD;
+
+#if defined(EXT_NEC_RING)
+  SPDZEXT_VALTYPE a_ring;
+  uint32_t precision;
+#endif
 
   public:
 
@@ -47,15 +51,46 @@ class gfp
 
   static int size() { return t() * sizeof(mp_limb_t); }
 
-  void assign(const gfp& g) { a=g.a; } 
-  void assign_zero()        { assignZero(a,ZpD); }
+  void assign(const gfp& g) {
+	  a=g.a;
+#if defined(EXT_NEC_RING)
+	  a_ring = g.a_ring;
+#endif
+  }
+  void assign_zero()        {
+#if defined(EXT_NEC_RING)
+	  a_ring = 0;
+#else
+	  assignZero(a,ZpD);
+#endif
+  }
   void assign_one()         { assignOne(a,ZpD); } 
-  void assign(word aa)      { bigint b=aa; to_gfp(*this,b); }
-  void assign(long aa)      { bigint b=aa; to_gfp(*this,b); }
-  void assign(int aa)       { bigint b=aa; to_gfp(*this,b); }
+  void assign(word aa)      {
+	  bigint b=aa; to_gfp(*this,b);
+#if defined(EXT_NEC_RING)
+	  a_ring = (SPDZEXT_VALTYPE)aa;
+#endif
+  }
+  void assign(long aa)      {
+	  bigint b=aa; to_gfp(*this,b);
+#if defined(EXT_NEC_RING)
+	  a_ring = (SPDZEXT_VALTYPE)aa;
+#endif
+  }
+  void assign(int aa)       {
+	  bigint b=aa; to_gfp(*this,b);
+#if defined(EXT_NEC_RING)
+	  a_ring = (SPDZEXT_VALTYPE)aa;
+#endif
+  }
   void assign(const char* buffer) { a.assign(buffer, ZpD.get_t()); }
 
   modp get() const          { return a; }
+#if defined(EXT_NEC_RING)
+  void assign_ring(SPDZEXT_VALTYPE aa) { a_ring = aa; }
+
+  SPDZEXT_VALTYPE get_ring() const { return a_ring; }
+#endif
 
   // Assumes prD behind x is equal to ZpD
   void assign(modp& x) { a=x; }
@@ -70,7 +105,12 @@ class gfp
   ~gfp()             { ; }
 
   gfp& operator=(const gfp& g)
-    { if (&g!=this) { a=g.a; }
+    { if (&g!=this) {
+    	a=g.a;
+#if defined(EXT_NEC_RING)
+    	a_ring = g.a_ring;
+#endif
+    }
       return *this;
     }
 
@@ -101,33 +141,85 @@ class gfp
   // x+y
   template <int T>
   void add(const gfp& x,const gfp& y)
-    { Add<T>(a,x.a,y.a,ZpD); }  
+    {
+	  Add<T>(a,x.a,y.a,ZpD);
+#if defined(EXT_NEC_RING)
+	  a_ring = x.a_ring + y.a_ring;
+#endif
+    }
   template <int T>
   void add(const gfp& x)
-    { Add<T>(a,a,x.a,ZpD); }
+    {
+	  Add<T>(a,a,x.a,ZpD);
+#if defined(EXT_NEC_RING)
+	  a_ring += x.a_ring;
+#endif
+    }
   template <int T>
   void add(void* x)
-    { ZpD.Add<T>(a.x,a.x,(mp_limb_t*)x); }
+    {
+	  ZpD.Add<T>(a.x,a.x,(mp_limb_t*)x);
+#if defined(EXT_NEC_RING)
+#endif
+    }
   template <int T>
   void add(octetStream& os)
     { add<T>(os.consume(size())); }
   void add(const gfp& x,const gfp& y)
-    { Add(a,x.a,y.a,ZpD); }  
+    {
+	  Add(a,x.a,y.a,ZpD);
+#if defined(EXT_NEC_RING)
+	  a_ring = x.a_ring + y.a_ring;
+#endif
+    }
   void add(const gfp& x)
-    { Add(a,a,x.a,ZpD); }
+    {
+	  Add(a,a,x.a,ZpD);
+#if defined(EXT_NEC_RING)
+	  a_ring += x.a_ring;
+#endif
+    }
   void add(void* x)
-    { ZpD.Add(a.x,a.x,(mp_limb_t*)x); }
+    {
+	  ZpD.Add(a.x,a.x,(mp_limb_t*)x);
+#if defined(EXT_NEC_RING)
+#endif
+    }
   void sub(const gfp& x,const gfp& y)
-    { Sub(a,x.a,y.a,ZpD); }
+    {
+	  Sub(a,x.a,y.a,ZpD);
+#if defined(EXT_NEC_RING)
+	  a_ring = x.a_ring - y.a_ring;
+#endif
+    }
   void sub(const gfp& x)
-    { Sub(a,a,x.a,ZpD); }
+    {
+	  Sub(a,a,x.a,ZpD);
+#if defined(EXT_NEC_RING)
+	  a_ring -= x.a_ring;
+#endif
+	  }
   // = x * y
   void mul(const gfp& x,const gfp& y)
-    { Mul(a,x.a,y.a,ZpD); }
+    {
+	  Mul(a,x.a,y.a,ZpD);
+#if defined(EXT_NEC_RING)
+	  a_ring = x.a_ring * y.a_ring;
+#endif
+    }
   void mul(const gfp& x) 
-    { Mul(a,a,x.a,ZpD); }
+    {
+	  Mul(a,a,x.a,ZpD);
+#if defined(EXT_NEC_RING)
+	  a_ring = a_ring * x.a_ring;
+#endif
+    }
 
-  gfp operator+(const gfp& x) { gfp res; res.add(*this, x); return res; }
+  gfp operator+(const gfp& x) {
+	  gfp res; res.add(*this, x); return res;
+#if defined(EXT_NEC_RING)
+#endif
+  }
   gfp operator-(const gfp& x) { gfp res; res.sub(*this, x); return res; }
   gfp operator*(const gfp& x) { gfp res; res.mul(*this, x); return res; }
   gfp& operator+=(const gfp& x) { add(x); return *this; }
@@ -158,10 +250,27 @@ class gfp
   void almost_randomize(PRNG& G);
 
   void output(ostream& s,bool human) const
-    { a.output(s,ZpD,human); }
+    {
+#if defined(EXT_NEC_RING)
+	  // human: true
+	  if (human) {
+		  s << a_ring;
+	  }
+#else
+	  a.output(s,ZpD,human);
+#endif
+    }
   void input(istream& s,bool human)
-    { a.input(s,ZpD,human); }
-
+    {
+#if defined(EXT_NEC_RING)
+	  // human: true
+	  if (human) {
+		  s >> a_ring;
+	  }
+#else
+	  a.input(s,ZpD,human);
+#endif
+    }
   friend ostream& operator<<(ostream& s,const gfp& x)
     { x.output(s,true);
       return s;

@@ -94,16 +94,20 @@ void gfp::SHR(const gfp& x,int n)
     {
       if (n != 0)
         {
-          bigint bi;
-          to_bigint(bi,x);
-          mpn_rshift(bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_size,n);
-          to_gfp(*this, bi);
+			#if defined(EXT_NEC_RING)
+    	  	  assign_ring(x.a_ring >> n);
+			#else
+    	  	  bigint bi;
+    	  	  to_bigint(bi,x);
+    	  	  mpn_rshift(bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_size,n);
+    	  	  to_gfp(*this, bi);
+			#endif
         }
       else
-        assign(x);
+    	  assign(x);
     }
   else
-    {
+  	{
       assign_zero();
     }
 }

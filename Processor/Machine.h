@@ -25,7 +25,7 @@ class BaseMachine
 {
 protected:
     std::map<int,Timer> timer;
-    void print_timers();
+    void print_timers(string progname);
 
 public:
     void time();

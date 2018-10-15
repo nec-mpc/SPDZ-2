@@ -1,0 +1,94 @@
+import util
+#------------------------------------------------------------------------------
+#definitions
+
+c_FeaturesSetSize = 17
+c_TreeDepth = 30
+c_NodeSetSize = 1255
+
+#user 0 the evaluator
+#user 1 is the evaluee
+#------------------------------------------------------------------------------
+# Code for oblivious selection of an array member by a secure index
+def oblivious_selection(sec_array, array_size, sec_index):
+    bitcnt = util.log2(array_size)
+    sec_index_bits = sec_index.e_bit_decompose(bitcnt)
+    return obliviously_select(sec_array, array_size, 0, sec_index_bits, len(sec_index_bits) - 1)
+
+def obliviously_select(array, size, offset, bits, bits_index):
+    #print('size={}; offset={}; bi={};'.format(size, offset, bits_index))
+    if offset >= size:
+        return 0
+    elif bits_index < 0:
+        return array[offset]
+    else:
+        half_size = 2**(bits_index)
+        msb = bits[bits_index]
+        return msb.if_else(
+            obliviously_select(array, size, offset + half_size, bits, bits_index-1) ,
+            obliviously_select(array, size, offset, bits, bits_index-1) )
+#------------------------------------------------------------------------------
+# Reading feature set from user 1 (the evaluee)
+#print_ln('user 1: please enter input offset:')
+User1InputOffset = sint.get_input_from(1)
+#print_ln('user 1: please enter feature set (%s feature values):', c_FeaturesSetSize)
+FeaturesSet = [sint() for i in range(c_FeaturesSetSize)]
+
+for i in range(c_FeaturesSetSize):
+    FeaturesSet[i] = sint.get_input_from(1) - User1InputOffset
+    #debug-print
+    #print_ln('FeaturesSet[%s] = %s', i, FeaturesSet[i].reveal())
+#------------------------------------------------------------------------------
+def test(FeatureIdx, Operator, Threshold):
+    feature_value = oblivious_selection(FeaturesSet, c_FeaturesSetSize, FeatureIdx)
+    return Operator.if_else(feature_value > Threshold, feature_value == Threshold)
+#------------------------------------------------------------------------------
+#print_ln('user 0: please enter input offset:')
+User0InputOffset = sint.get_input_from(0)
+def read_node(i):
+    #print_ln('user 0: please enter node %s feature index:', i)
+    FeatureIdx = sint.get_input_from(0) - User0InputOffset
+    #debug-print
+    #print_ln('FeatureIdx[%s] = %s', i, FeatureIdx.reveal())
+    #print_ln('user 0: please enter node %s operator:', i)
+    Operator = sint.get_input_from(0) - User0InputOffset
+    #debug-print
+    #print_ln('Operator[%s] = %s', i, Operator.reveal())
+
+    #print_ln('user 0: please enter node %s Threshold:', i)
+    Threshold = sint.get_input_from(0) - User0InputOffset
+    #debug-print
+    #print_ln('Threshold[%s] = %s', i, Threshold.reveal())
+
+    #print_ln('user 0: please enter node %s GT/EQ:', i)
+    GT_or_EQ = sint.get_input_from(0) - User0InputOffset
+    #debug-print
+    #print_ln('GT_or_EQ[%s] = %s', i, GT_or_EQ.reveal())
+
+    #print_ln('user 0: please enter node %s LTE/NEQ:', i)
+    LTE_or_NEQ = sint.get_input_from(0) - User0InputOffset
+    #debug-print
+    #print_ln('LTE_or_NEQ[%s] = %s', i, LTE_or_NEQ.reveal())
+
+    NodePass = test(FeatureIdx, Operator, Threshold)
+    #debug-print
+    #print_ln('Node[%s] passage = %s', i, NodePass.reveal())
+
+    return NodePass*GT_or_EQ + (1 - NodePass)*LTE_or_NEQ
+#------------------------------------------------------------------------------
+# Reading node set from user 0 (the evaluator)
+NodeSet = [sint() for i in range(c_NodeSetSize)]
+for i in range(c_NodeSetSize):
+    NodeSet[i] = read_node(i)
+#------------------------------------------------------------------------------
+#evaluation
+NodePtr = MemValue(sint(0))
+for i in range(c_TreeDepth):
+    NextNodePtr = oblivious_selection(NodeSet, c_NodeSetSize, NodePtr)
+    CycleBack = (NextNodePtr < 0) * (i < (c_TreeDepth-1))
+    NodePtr.write(CycleBack.if_else(NodePtr, NextNodePtr))
+    #debug-print
+    #print_ln('CurrentLayer = %s; NodePtr = %s; NextNodePtr = %s', i, NodePtr.reveal(), NextNodePtr.reveal())
+
+NodePtr = (NodePtr + 1) * (-1)
+print_ln('evaluation result = %s', NodePtr.reveal())

@@ -50,8 +50,10 @@ Machine::Machine(int my_number, Names& playerNames,
 
   alphapi.input(inpf,true);
   alpha2i.input(inpf,true);
-  cerr << "MAC Key p = " << alphapi << endl;
-  cerr << "MAC Key 2 = " << alpha2i << endl;
+  // statstics comment out (start)
+//  cerr << "MAC Key p = " << alphapi << endl;
+//  cerr << "MAC Key 2 = " << alpha2i << endl;
+  // statstics comment out (end)
   inpf.close();
 
 
@@ -244,8 +246,10 @@ void Machine::run()
   char compiler[1000];
   inpf.get();
   inpf.getline(compiler, 1000);
-  if (compiler[0] != 0)
-    cerr << "Compiler: " << compiler << endl;
+  // statistics comment out (start)
+//  if (compiler[0] != 0)
+//    cerr << "Compiler: " << compiler << endl;
+  // statistics comment out (end)
   inpf.close();
 
   finish_timer.start();
@@ -258,8 +262,9 @@ void Machine::run()
         pthread_cond_signal(&server_ready[i]);
       pthread_mutex_unlock(&t_mutex[i]);
     }
-
-  cerr << "Waiting for all clients to finish" << endl;
+  // statistics comment out (start)
+//  cerr << "Waiting for all clients to finish" << endl;
+  // statistics comment out (end)
   // Wait until all clients have signed out
   for (int i=0; i<nthreads; i++)
     {
@@ -274,59 +279,65 @@ void Machine::run()
     }
   finish_timer.stop();
   
+
   for (unsigned int i = 0; i < join_timer.size(); i++)
     cerr << "Join timer: " << i << " " << join_timer[i].elapsed() << endl;
   cerr << "Finish timer: " << finish_timer.elapsed() << endl;
   cerr << "Process timer: " << proc_timer.elapsed() << endl;
-  print_timers();
 
-  if (opening_sum < N.num_players() && !direct)
-    cerr << "Summed at most " << opening_sum << " shares at once with indirect communication" << endl;
-  else
-    cerr << "Summed all shares at once" << endl;
+  print_timers(progname);
 
-  if (max_broadcast < N.num_players() && !direct)
-    cerr << "Send to at most " << max_broadcast << " parties at once" << endl;
-  else
-    cerr << "Full broadcast" << endl;
+  // statistics comment out (start)
+//  if (opening_sum < N.num_players() && !direct)
+//    cerr << "Summed at most " << opening_sum << " shares at once with indirect communication" << endl;
+//  else
+//    cerr << "Summed all shares at once" << endl;
+//
+//  if (max_broadcast < N.num_players() && !direct)
+//    cerr << "Send to at most " << max_broadcast << " parties at once" << endl;
+//  else
+//    cerr << "Full broadcast" << endl;
+//
+//  // Reduce memory size to speed up
+//  int max_size = 1 << 20;
+//  if (M2.size_s() > max_size)
+//    M2.resize_s(max_size);
+//  if (Mp.size_s() > max_size)
+//    Mp.resize_s(max_size);
+//
+//  // Write out the memory to use next time
+//  char filename[1024];
+//  sprintf(filename,PREP_DIR "Memory-P%d",my_number);
+//  ofstream outf(filename,ios::out | ios::binary);
+//  outf << M2 << Mp << Mi;
+//  outf.close();
+//
+//  extern unsigned long long sent_amount, sent_counter;
+//  cerr << "Data sent = " << sent_amount << " bytes in "
+//      << sent_counter << " calls,";
+//  cerr << sent_amount / sent_counter / N.num_players()
+//      << " bytes per call" << endl;
+//
+//  for (int dtype = 0; dtype < N_DTYPE; dtype++)
+//    {
+//      cerr << "Num " << Data_Files::dtype_names[dtype] << "\t=";
+//      for (int field_type = 0; field_type < N_DATA_FIELD_TYPE; field_type++)
+//        cerr << " " << pos.files[field_type][dtype];
+//      cerr << endl;
+//   }
+//  for (int field_type = 0; field_type < N_DATA_FIELD_TYPE; field_type++)
+//    {
+//      cerr << "Num " << Data_Files::long_field_names[field_type] << " Inputs\t=";
+//      for (int i = 0; i < N.num_players(); i++)
+//        cerr << " " << pos.inputs[i][field_type];
+//      cerr << endl;
+//    }
+  // statistics comment out (end)
 
-  // Reduce memory size to speed up
-  int max_size = 1 << 20;
-  if (M2.size_s() > max_size)
-    M2.resize_s(max_size);
-  if (Mp.size_s() > max_size)
-    Mp.resize_s(max_size);
-
-  // Write out the memory to use next time
-  char filename[1024];
-  sprintf(filename,PREP_DIR "Memory-P%d",my_number);
-  ofstream outf(filename,ios::out | ios::binary);
-  outf << M2 << Mp << Mi;
-  outf.close();
-
-  extern unsigned long long sent_amount, sent_counter;
-  cerr << "Data sent = " << sent_amount << " bytes in "
-      << sent_counter << " calls,";
-  cerr << sent_amount / sent_counter / N.num_players()
-      << " bytes per call" << endl;
-
-  for (int dtype = 0; dtype < N_DTYPE; dtype++)
-    {
-      cerr << "Num " << Data_Files::dtype_names[dtype] << "\t=";
-      for (int field_type = 0; field_type < N_DATA_FIELD_TYPE; field_type++)
-        cerr << " " << pos.files[field_type][dtype];
-      cerr << endl;
-   }
-  for (int field_type = 0; field_type < N_DATA_FIELD_TYPE; field_type++)
-    {
-      cerr << "Num " << Data_Files::long_field_names[field_type] << " Inputs\t=";
-      for (int i = 0; i < N.num_players(); i++)
-        cerr << " " << pos.inputs[i][field_type];
-      cerr << endl;
-    }
-
-  cerr << "Total cost of program:" << endl;
-  pos.print_cost();
+  // statistics comment out (start)
+//  cerr << "Total cost of program:" << endl;
+//  pos.print_cost();
+  // statistics comment out (end)
 
 #ifndef INSECURE
   Data_Files df(N.my_num(), N.num_players(), prep_dir_prefix);
@@ -355,8 +366,21 @@ void BaseMachine::stop(int n)
   cout << "Stopped timer " << n << " at " << timer[n].elapsed() << endl;
 }
 
-void BaseMachine::print_timers()
+void BaseMachine::print_timers(string progname)
 {
+	// added by hikaru (start)
+	const char *fileName = "test_result.txt";
+	// overwrite
+	std::ofstream ofs(fileName);
+	// add a postscript
+   // std::ofstream ofs(fileName, ios::app);
+	if(!ofs)
+	{
+		cout << "Writng execution time to file is failed." << endl;
+	}
+	ofs << progname.c_str() << ": Time = " << timer[0].elapsed() << " seconds " << endl;
+	// added by hikaru (end)
+
   cerr << "Time = " << timer[0].elapsed() << " seconds " << endl;
   timer.erase(0);
   for (map<int,Timer>::iterator it = timer.begin(); it != timer.end(); it++)
