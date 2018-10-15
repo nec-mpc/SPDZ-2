@@ -149,7 +149,7 @@ See https://github.com/nec-mpc/SPDZ-2-Extension-Ring for our implemented extensi
 * [Each MPC server(0/1/2)] 
 	`.Player-Online.x -pn [port number] -lgp 64 [server ID] [PROGRAM NAME]`
 
-- ÅiEx.Åjvariance_modified_10input (This program computes variance from 10 inputs)
+- variance_modified_10input (This program computes variance from 10 inputs)
    * [Proxy]
      `./Server.x 3 60000`
    * [MPC server0]
