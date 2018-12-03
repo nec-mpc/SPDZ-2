@@ -18,10 +18,10 @@ FHEOFFLINE = $(patsubst %.cpp,%.o,$(wildcard FHEOffline/*.cpp FHE/*.cpp))
 endif
 
 # OT stuff needs GF2N_LONG, so only compile if this is enabled
-ifeq ($(USE_GF2N_LONG),1)
-OT = $(patsubst %.cpp,%.o,$(filter-out OT/OText_main.cpp,$(wildcard OT/*.cpp)))
-OT_EXE = ot.x ot-offline.x
-endif
+#ifeq ($(USE_GF2N_LONG),1)
+#OT = $(patsubst %.cpp,%.o,$(filter-out OT/OText_main.cpp,$(wildcard OT/*.cpp)))
+#OT_EXE = ot.x ot-offline.x
+#endif
 
 COMMON = $(MATH) $(TOOLS) $(NETWORK) $(AUTH)
 COMPLETE = $(COMMON) $(PROCESSOR) $(FHEOFFLINE) $(TINYOTOFFLINE) $(OT)
@@ -34,7 +34,7 @@ OBJS = $(COMPLETE)
 DEPS := $(OBJS:.o=.d)
 
 
-all: gen_input online offline externalIO
+all: gen_input online externalIO
 
 ifeq ($(USE_NTL),1)
 all: overdrive she-offline
@@ -47,7 +47,7 @@ endif
 
 online: Fake-Offline.x Server.x Player-Online.x Check-Offline.x
 
-offline: $(OT_EXE) Check-Offline.x
+#offline: $(OT_EXE) Check-Offline.x
 
 gen_input: gen_input_f2n.x gen_input_fp.x
 
